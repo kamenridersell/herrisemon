@@ -1,0 +1,3081 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>赫睿師營收管理系統 (雲端版)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#15161B;
+    --paper-deep:#1C1E25;
+    --line:#33323A;
+    --ink:#EDE7D9;
+    --ink-soft:#9A9488;
+    --brass:#C9A24B;
+    --brass-dark:#9C7A32;
+    --green:#5B9279;
+    --green-bg:#16241D;
+    --red:#D97B72;
+    --red-bg:#2A1917;
+    --card:#1A1B22;
+    --shadow: 0 1px 0 rgba(0,0,0,0.3);
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(201,162,75,0.06), transparent 45%),
+      linear-gradient(var(--paper),var(--paper));
+    background-color:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image: repeating-linear-gradient(180deg, rgba(201,162,75,0.02) 0px, rgba(201,162,75,0.02) 1px, transparent 1px, transparent 34px);
+  }
+  .app{position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:28px 20px 80px;}
+
+  /* 載入動畫 */
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  #globalLoader {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999;
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    color: var(--brass); backdrop-filter: blur(4px);
+  }
+  #globalLoader .spin { font-size: 50px; margin-bottom: 16px; }
+  #globalLoader div { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.05em; }
+
+  /* header */
+  .ledger-header{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    border-bottom:2px solid var(--brass);
+    padding-bottom:16px; margin-bottom:22px; gap:16px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:14px; flex-wrap: wrap;}
+  h1{font-family:'Fraunces',serif; font-weight:700; font-size:30px; margin:0; letter-spacing:.2px;}
+  .tagline{margin:2px 0 0; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft);}
+  .view-switch{display:flex; gap:6px; background:var(--paper-deep); padding:4px; border-radius:20px; flex-wrap:wrap;}
+  .view-switch button{
+    border:none; background:transparent; padding:8px 18px; border-radius:16px;
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; color:var(--ink-soft); cursor:pointer;
+  }
+  .view-switch button.active{background:var(--ink); color:var(--paper);}
+  .view-switch button.crown-btn{position:relative; padding-right:26px;}
+  .view-switch button.crown-btn::after{
+    content:'👑'; position:absolute; top:1px; right:4px; font-size:13px; line-height:1;
+    transform:rotate(45deg); transform-origin:center; pointer-events:none;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
+  }
+  .nav-groups{display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
+  .nav-group{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .nav-group-label{
+    font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--brass); white-space:nowrap;
+  }
+
+  /* Sync Button */
+  #cloudSyncBtn {
+    background: var(--green-bg); color: var(--green); border: 1px solid var(--green);
+    padding: 8px 16px; border-radius: 6px; font-size: 13.5px; cursor: pointer; font-weight: 600;
+    transition: all 0.2s; font-family: 'Inter', sans-serif;
+  }
+  #cloudSyncBtn:hover { background: var(--green); color: #fff; }
+
+  /* month tabs */
+  .month-tabs{display:flex; align-items:flex-end; gap:4px; flex-wrap:wrap; margin-bottom:0;}
+  .month-tab{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:500;
+    padding:9px 16px 8px; background:var(--paper-deep); color:var(--ink-soft);
+    border:1px solid var(--line); border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer;
+    position:relative; top:1px;
+  }
+  .month-tab.active{background:var(--card); color:var(--brass); border-color:var(--brass); font-weight:600;}
+  .month-tab-add{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; padding:9px 14px 8px;
+    background:transparent; color:var(--brass-dark); border:1px dashed var(--brass); border-bottom:none;
+    border-radius:6px 6px 0 0; cursor:pointer;
+  }
+  .month-tab-input{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; padding:8px 12px;
+    background:var(--card); color:var(--ink); border:1px solid var(--brass); border-bottom:none;
+    border-radius:6px 6px 0 0; position:relative; top:1px; width:130px;
+  }
+  .year-tabs{margin-bottom:8px;}
+  .year-tabs .month-tab{
+    font-family:'Fraunces',serif; font-weight:600; font-size:13.5px;
+    background:var(--paper); border-color:var(--brass); border-bottom:1px solid var(--brass);
+    border-radius:6px;
+  }
+  .year-tabs .month-tab.active{background:var(--brass); color:var(--paper); border-color:var(--brass);}
+  .year-tabs .month-tab-add{border-radius:6px; border-bottom:1px dashed var(--brass);}
+  .tab-wrap{display:inline-flex; align-items:stretch; position:relative;}
+  .tab-wrap:has(.tab-delete) .month-tab{border-right:none; border-radius:6px 0 0 0;}
+  .year-tabs .tab-wrap:has(.tab-delete) .month-tab{border-radius:6px 0 0 6px;}
+  .tab-delete{
+    font-size:10px; padding:0 6px; border:1px solid var(--line); border-left:none; background:var(--paper-deep);
+    color:var(--ink-soft); cursor:pointer; border-radius:0 6px 0 0; position:relative; top:1px;
+  }
+  .tab-delete:hover{background:var(--red); color:#fff; border-color:var(--red);}
+  .tab-delete.confirm-armed{background:var(--red); color:#fff; border-color:var(--red);}
+  .year-tabs .tab-delete{border-radius:0 6px 6px 0; top:0;}
+  .month-panel{background:var(--card); border:1px solid var(--ink); border-radius:0 8px 8px 8px; padding:20px; box-shadow:var(--shadow);}
+  .empty-state{padding:40px 10px; text-align:center; color:var(--ink-soft);}
+  .empty-state button{margin-top:10px;}
+
+  .month-toolbar{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:16px; flex-wrap:wrap;}
+  .filter-bar{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
+  .filter-bar input, .filter-bar select{
+    font-family:'Inter',sans-serif; font-size:13px; padding:8px 12px; border:1px solid var(--line);
+    border-radius:6px; background:var(--card); color:var(--ink); flex:1; min-width:160px;
+  }
+  .filter-bar input:focus, .filter-bar select:focus{outline:2px solid var(--brass); outline-offset:1px; border-color:var(--brass);}
+  .rate-field{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--ink-soft);}
+  .rate-field input{
+    width:56px; font-family:'IBM Plex Mono',monospace; border:1px solid var(--line); border-radius:4px;
+    padding:5px 6px; text-align:right; background:var(--card); color:#fff;
+  }
+  .month-actions{display:flex; gap:8px; align-items:center;}
+  .btn-primary{
+    background:var(--ink); color:var(--paper); border:none; padding:9px 16px; border-radius:6px;
+    font-weight:600; font-size:13.5px; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .btn-primary:hover{background:var(--brass-dark);}
+  .btn-ghost{
+    background:transparent; border:1px solid var(--line); color:var(--ink-soft); padding:8px 14px;
+    border-radius:6px; font-size:13px; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .btn-ghost:hover{border-color:var(--red); color:var(--red);}
+
+  /* ledger rows */
+  .ledger-row{
+    border:1px solid var(--line); border-radius:6px; padding:14px 16px; margin-bottom:10px; background:var(--card);
+    position:relative;
+  }
+  .card-actions{
+    position:absolute; top:10px; right:14px; display:flex; gap:6px; z-index:2;
+  }
+  .mini-btn{
+    border:1px solid var(--line); background:var(--paper); color:var(--ink-soft); font-size:11px;
+    padding:4px 10px; border-radius:5px; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600;
+  }
+  .mini-btn.mini-delete{color:var(--red); border-color:var(--red); background:var(--red-bg);}
+  .mini-btn.mini-delete:hover{background:var(--red); color:#fff;}
+  .mini-btn.confirm-armed{background:var(--red); color:#fff; border-color:var(--red);}
+  .row-grid{display:grid; grid-template-columns: .7fr 1.1fr 1fr 1fr 1.1fr 1.15fr .5fr .85fr .7fr .9fr; gap:10px; align-items:end;}
+  .deposit-grid{grid-template-columns: 1.1fr 1fr .9fr 1fr 1.1fr .85fr .8fr .7fr .95fr .55fr;}
+  .client-grid{grid-template-columns: .8fr 1.1fr .9fr .7fr .9fr .8fr 1fr 1.1fr;}
+  .deposit-alt-a{background:var(--card);}
+  .deposit-alt-b{background:var(--paper-deep);}
+  .deposit-summary-bar{
+    width:100%; display:flex; flex-direction:column; gap:8px;
+    background:none; border:none; cursor:pointer; padding:2px 130px 0 0; text-align:left; font-family:'Inter',sans-serif;
+    position:relative;
+  }
+  .ds-row{display:grid; gap:16px; align-items:center;}
+  .ds-row1{grid-template-columns: 180px 1fr 1fr 1fr 20px;}
+  .ds-row2{grid-template-columns: 1fr 1fr 1fr;}
+  .ds-row1.entry-row1{grid-template-columns: 180px 1fr 100px 20px;}
+  .ds-row2.entry-row2{grid-template-columns: 1fr 1fr;}
+  .ds-warn{
+    font-size:11px; font-weight:700; color:var(--red); font-family:'Inter',sans-serif;
+    white-space:nowrap; text-align:right;
+  }
+  .ledger-row:has(.row-grid) .deposit-summary-bar{padding-bottom:14px; border-bottom:1px dashed var(--line); margin-bottom:14px;}
+  .ds-name{
+    font-family:'Fraunces',serif; font-weight:700; font-size:15px; color:var(--ink);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ds-item{font-size:12.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ds-item b{color:var(--ink); font-weight:600;}
+  .closed-tag{color:var(--brass); font-weight:700; font-family:'Inter',sans-serif;}
+  .ds-caret{color:var(--ink-soft); font-size:13px; text-align:right;}
+  .calc-chip-row{display:flex; gap:10px; margin-bottom:10px;}
+  .field{display:flex; flex-direction:column; gap:4px;}
+  .field label{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);}
+  .date-mode-toggle{display:inline-flex; gap:2px; text-transform:none; letter-spacing:0;}
+  .dm-btn{
+    border:1px solid var(--line); background:var(--paper); color:var(--ink-soft); font-size:9.5px;
+    padding:2px 5px; border-radius:3px; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600;
+  }
+  .dm-btn.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .field input, .field select{
+    font-family:'Inter',sans-serif; font-size:13px; padding:7px 8px; border:1px solid var(--line);
+    border-radius:5px; background:var(--paper); color:var(--ink); width:100%;
+  }
+  .field input[type=number]{font-family:'IBM Plex Mono',monospace; text-align:right;}
+  .field input:focus, .field select:focus{outline:2px solid var(--brass); outline-offset:1px; border-color:var(--brass);}
+  .installment-pair{display:flex; align-items:center; gap:3px;}
+  .installment-pair .inst-num{width:30px; flex:none; min-width:0; text-align:center; padding:7px 2px;}
+  .installment-pair span{color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  .row-delete{border:none; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:16px; padding:6px;}
+  .row-delete:hover{color:var(--red);}
+  .row-sub{display:flex; gap:18px; margin-top:12px; align-items:flex-start; flex-wrap:wrap;}
+  .calc-chip{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; background:var(--paper-deep); border-radius:5px;
+    padding:6px 10px; display:flex; gap:6px; align-items:center; color:var(--ink-soft);
+  }
+  .calc-chip b{color:var(--ink); font-weight:600;}
+  .stamp{
+    font-family:'Fraunces',serif; font-weight:700; font-size:11px; letter-spacing:.08em;
+    border:1.5px solid; border-radius:4px; padding:4px 9px; transform:rotate(-3deg); text-transform:uppercase;
+  }
+  .stamp.paid{color:var(--green); border-color:var(--green); background:var(--green-bg);}
+  .stamp.unpaid{color:var(--red); border-color:var(--red); background:var(--red-bg);}
+  .stamp-toggle{cursor:pointer; width:100%; transform:rotate(-2deg); font-family:'Fraunces',serif;}
+  .stamp-toggle:hover{filter:brightness(0.96);}
+  .status-detail{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px;
+    background:var(--paper-deep); border:1px dashed var(--line); border-radius:6px; padding:12px 14px; margin-top:10px;
+  }
+  .calc-display{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; color:var(--brass-dark);
+    background:var(--card); border:1px solid var(--line); border-radius:5px; padding:7px 8px;
+  }
+
+  .shares{flex:1; min-width:260px;}
+  .shares-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .shares-head span{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);}
+  .shares-head button{border:none; background:none; color:var(--brass-dark); font-size:12px; cursor:pointer; font-weight:600;}
+  .shares-toggle{display:flex; align-items:center; gap:6px; padding:0;}
+  .share-row{display:flex; gap:6px; margin-bottom:5px;}
+  .share-row input, .share-row select{font-size:12.5px; padding:5px 7px; border:1px solid var(--line); border-radius:4px; background:var(--paper); color:#fff;}
+  .share-row .name-select{width:88px; flex:none;}
+  .share-row .name-custom{flex:1;}
+  .share-row input.amount{width:100px; font-family:'IBM Plex Mono',monospace; text-align:right;}
+  .paid-badge{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; border:1px solid var(--line);
+    border-radius:4px; padding:5px 8px; white-space:nowrap;
+  }
+  .paid-badge.is-unpaid{background:var(--red-bg); color:var(--red); border-color:var(--red);}
+  .paid-badge.is-paid{background:var(--green-bg); color:var(--green); border-color:var(--green);}
+  .share-row button{border:none; background:none; color:var(--ink-soft); cursor:pointer; font-size:14px;}
+  .share-row button:hover{color:var(--red);}
+
+  .bz-rate-input{
+    width:100%; max-width:110px; font-family:'IBM Plex Mono',monospace; font-size:19px; font-weight:600;
+    padding:2px 6px; border:1px solid var(--line); border-radius:5px; background:var(--paper); color:var(--brass); text-align:right;
+  }
+  .bz-rate-input:focus{outline:2px solid var(--brass); outline-offset:1px;}
+  .bz-head{
+    display:flex; gap:28px; align-items:center; flex-wrap:wrap;
+    margin-bottom:20px; padding-bottom:18px; border-bottom:2px solid var(--ink);
+  }
+  .bz-head .totals-strip{
+    border:0; margin:0; padding:0; flex:1 1 340px;
+    grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  }
+  .bz-pie{display:flex; gap:18px; align-items:center; flex:0 1 auto; flex-wrap:wrap;}
+  .bz-pie svg{width:150px; height:150px; flex:none;}
+  .bz-pie-empty{font-size:12px; color:var(--ink-soft);}
+  .bz-legend{list-style:none; margin:0; padding:0; font-size:12px; color:var(--ink-soft);}
+  .bz-legend li{display:flex; align-items:center; gap:6px; padding:2px 0; white-space:nowrap;}
+  .bz-legend .dot{width:9px; height:9px; border-radius:2px; flex:none;}
+  .bz-legend b{color:var(--ink); font-family:'IBM Plex Mono',monospace; font-weight:600; margin-left:auto; padding-left:10px;}
+  .bz-legend em{font-style:normal; font-family:'IBM Plex Mono',monospace; font-size:11px; min-width:70px; text-align:right;}
+  .bz-btns{display:flex; gap:8px; justify-content:flex-end;}
+  .bz-btns .mini-btn{padding:8px 16px; font-size:12.5px;}
+  .bz-btns .bz-edit{color:var(--brass); border-color:var(--brass);}
+  .bz-btns .bz-save{background:var(--brass); color:var(--paper); border-color:var(--brass);}
+  .bz-chart-box{border:1px solid var(--line); border-radius:6px; background:var(--card); padding:12px 8px; margin-bottom:22px;}
+  .bz-chart-box svg{width:100%; height:auto; display:block;}
+  .bz-chart-legend{list-style:none; margin:10px 8px 0; padding:0; display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--ink-soft); justify-content:center;}
+  .bz-chart-legend li{display:flex; align-items:center; gap:6px;}
+  .bz-chart-legend .dot{width:10px; height:10px; border-radius:2px; flex:none;}
+  .bz-row{
+    display:grid; grid-template-columns:160px 170px 150px 1fr auto; gap:12px; align-items:end;
+    border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:10px;
+  }
+  .bz-row .field{min-width:0;}
+  @media (max-width:800px){
+    .bz-row{grid-template-columns:1fr 1fr; padding:12px;}
+    .bz-row .bz-note, .bz-row .bz-del{grid-column:1 / -1;}
+    .bz-rate-input{font-size:16px;}
+  }
+  .totals-strip{
+    margin-bottom:20px; padding-bottom:18px; border-bottom:2px solid var(--ink);
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:14px;
+  }
+  .total-cell .label{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:4px;}
+  .total-cell .value{font-family:'IBM Plex Mono',monospace; font-size:19px; font-weight:600;}
+  .total-cell.brass .value{color:var(--brass-dark);}
+  .total-cell.green .value{color:var(--green);}
+  .total-cell.red .value{color:var(--red);}
+
+  /* overview */
+  .overview-summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:24px;}
+  .deposit-summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:24px;}
+  .ov-card{background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px;}
+  .ov-card .label{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px;}
+  .ov-card .value{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--ink);}
+
+  .chart{
+    background:var(--card); border:1px solid var(--line); border-radius:8px; padding:24px 20px 14px;
+    margin-bottom:24px; display:flex; align-items:flex-end; gap:16px; min-height:200px; overflow-x:auto;
+  }
+  .chart-bar-wrap{display:flex; flex-direction:column; align-items:center; gap:8px; min-width:52px;}
+  .chart-bar{width:34px; background:linear-gradient(180deg,var(--brass),var(--brass-dark)); border-radius:3px 3px 0 0; position:relative;}
+  .chart-bar-stack{background:none; display:flex; flex-direction:column-reverse; overflow:hidden;}
+  .chart-seg{width:100%;}
+  .chart-value{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft);}
+  .chart-label{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft);}
+  .chart-legend{display:flex; flex-wrap:wrap; gap:10px 18px; margin:-14px 0 24px; padding:0 4px;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); font-family:'Inter',sans-serif;}
+  .legend-swatch{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  table.overview-table{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:8px;}
+  .table-scroll table.overview-table{min-width:560px;}
+  table.overview-table th, table.overview-table td{
+    padding:10px 12px; text-align:right; font-size:12.5px; border-bottom:1px solid var(--line);
+    font-family:'IBM Plex Mono',monospace;
+  }
+  table.overview-table th{
+    background:var(--ink); color:var(--paper); font-family:'Inter',sans-serif; font-weight:600;
+    text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; text-align:right;
+  }
+  table.overview-table th:first-child, table.overview-table td:first-child{text-align:left; font-family:'Inter',sans-serif; font-weight:600;}
+  table.overview-table tr:last-child td{border-bottom:none;}
+  table.overview-table tr.total-row td{font-weight:700; background:var(--paper-deep); color:var(--brass);}
+  table.overview-table tr.pct-row td{font-size:11px; font-weight:600; background:var(--paper); opacity:0.9;}
+  .pct-note{font-size:10px; font-weight:500; color:var(--ink-soft); opacity:0.85;}
+  table.overview-table td.text-red{color:var(--red); font-weight:700;}
+  .commission-pay-select{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; border:1px solid var(--line);
+    border-radius:4px; padding:5px 6px; background:var(--card); color:var(--ink); cursor:pointer;
+  }
+  .commission-pay-select.text-red{color:var(--red); border-color:var(--red); background:var(--red-bg); font-weight:700;}
+
+  .commission-block{margin-bottom:22px;}
+  .commission-block-head{
+    display:flex; align-items:center; gap:16px; padding:10px 14px; background:var(--paper-deep);
+    border:1px solid var(--ink); border-bottom:none; border-radius:8px 8px 0 0;
+  }
+  .commission-block-head .ds-name{font-size:15px; color:var(--brass);}
+  .commission-block-head .ds-item{color:#fff;}
+  .commission-block-head .ds-item b{color:var(--brass);}
+  .commission-block .table-scroll table.overview-table{border-radius:0 0 8px 8px; border-top:none;}
+
+  .section-heading{
+    font-family:'Fraunces',serif; font-size:16px; font-weight:600; color:var(--ink);
+    margin:28px 0 12px;
+  }
+  .status-banner{
+    font-size:12px; color:var(--ink-soft); text-align:center; padding:8px; margin-top:10px;
+  }
+
+  .password-gate{
+    position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center;
+    background:var(--paper);
+  }
+  .password-card{
+    background:var(--card); border:1px solid var(--brass); border-radius:12px; padding:36px 40px;
+    width:320px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.4);
+  }
+  .password-title{font-family:'Fraunces',serif; font-weight:700; font-size:20px; color:var(--brass); margin-bottom:6px;}
+  .password-sub{font-size:12px; color:var(--ink-soft); margin-bottom:20px; letter-spacing:.05em;}
+  .password-card input{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:6px; background:var(--paper);
+    color:var(--ink); font-family:'IBM Plex Mono',monospace; font-size:14px; text-align:center; margin-bottom:14px;
+  }
+  .password-card input:focus{outline:2px solid var(--brass); outline-offset:1px; border-color:var(--brass);}
+  .password-card .btn-primary{width:100%;}
+  .password-error{color:var(--red); font-size:12px; margin-top:12px; min-height:16px;}
+  
+  @media (max-width:800px){
+    html{-webkit-text-size-adjust:100%;}
+    .app{padding:16px 12px 70px;}
+
+    /* header */
+    .ledger-header{flex-direction:column; align-items:stretch; gap:14px; padding-bottom:14px; margin-bottom:16px;}
+    .brand{gap:10px;}
+    h1{font-size:21px; line-height:1.25;}
+    .tagline{font-size:10px;}
+    .brand button, .brand .btn-ghost, .brand .btn-primary{
+      font-size:12px; padding:8px 10px; flex:1 1 auto; min-width:0;
+    }
+    #cloudSyncBtn{font-size:12px; padding:8px 10px;}
+    .nav-groups{width:100%; align-items:stretch;}
+    .nav-group{width:100%; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px;}
+    .nav-group-label{flex:none;}
+    .view-switch{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; width:100%;}
+    .view-switch button{padding:8px 13px; font-size:12.5px; white-space:nowrap; flex:none;}
+
+    /* tabs: scroll instead of wrap */
+    .month-tabs{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px;}
+    .month-tab, .month-tab-add, .tab-delete{white-space:nowrap; flex:none;}
+    .month-panel{padding:14px 12px;}
+
+    /* toolbars & filters stack */
+    .month-toolbar{flex-direction:column; align-items:stretch; gap:10px;}
+    .month-actions{flex-wrap:wrap;}
+    .month-actions button{flex:1 1 auto; font-size:12.5px; padding:9px 10px;}
+    .filter-bar{flex-direction:column;}
+    .filter-bar input, .filter-bar select{min-width:0; width:100%;}
+    .rate-field{flex-wrap:wrap;}
+
+    /* card action buttons */
+    .card-actions{position:static; justify-content:flex-end; margin-bottom:8px; flex-wrap:wrap;}
+    .deposit-summary-bar{padding-right:0;}
+    .mini-btn{padding:7px 12px; font-size:12px;}
+
+    /* summary bars stack into single readable column */
+    .ds-row{grid-template-columns:1fr !important; gap:4px; row-gap:6px;}
+    .ds-row1{position:relative; padding-right:26px;}
+    .ds-row1 .ds-item, .ds-row1 .ds-warn, .ds-row1 .ds-name{text-align:left; white-space:normal;}
+    .ds-caret{position:absolute; top:0; right:0;}
+    .ds-name{font-size:14px;}
+
+    /* forms: one field per row for real tap targets */
+    .row-grid, .deposit-grid, .client-grid, .status-detail{
+      grid-template-columns:1fr !important; gap:10px;
+    }
+    .field input, .field select, .field .calc-display{font-size:15px; padding:9px 10px;}
+    .field label{font-size:10px;}
+    .installment-pair .inst-num{width:44px; padding:9px 4px;}
+    .row-delete{padding:8px;}
+
+    /* shares / commission rows */
+    .row-sub{flex-direction:column; gap:12px;}
+    .shares{min-width:0; width:100%;}
+    .share-row{flex-wrap:wrap;}
+    .share-row .name-select{width:auto; flex:1 1 90px;}
+    .share-row input.amount{flex:1 1 80px; width:auto;}
+    .calc-chip-row{flex-wrap:wrap;}
+
+    /* totals / summary card grids: min two-up, never single tiny sliver */
+    .totals-strip{grid-template-columns:repeat(2,1fr); gap:10px;}
+    .overview-summary, .deposit-summary{grid-template-columns:repeat(2,1fr); gap:10px;}
+    .ov-card{padding:12px;}
+    .ov-card .value{font-size:18px;}
+    .total-cell .value{font-size:16px;}
+
+    /* chart */
+    .chart{padding:16px 12px 10px; gap:10px; min-height:170px;}
+    .chart-bar-wrap{min-width:40px;}
+    .chart-legend{margin-top:0; margin-bottom:16px;}
+
+    /* tables: allow horizontal scroll rather than squish */
+    .table-scroll table.overview-table{min-width:520px;}
+    table.overview-table th, table.overview-table td{padding:8px 9px; font-size:11.5px;}
+
+    .commission-block-head{flex-wrap:wrap; gap:8px 16px; padding:10px 12px;}
+
+    /* password gate */
+    .password-card{width:88vw; max-width:340px; padding:28px 22px;}
+
+    .section-heading{font-size:14px; margin:20px 0 10px;}
+  }
+
+  @media (max-width:420px){
+    h1{font-size:18px;}
+    .totals-strip, .overview-summary, .deposit-summary{grid-template-columns:1fr;}
+    .brand button, .brand .btn-ghost, .brand .btn-primary{font-size:11px; padding:7px 8px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="globalLoader">
+  <div class="spin">⏳</div>
+  <div id="loaderText">與雲端同步中...</div>
+</div>
+
+<div class="password-gate" id="passwordGate">
+  <div class="password-card">
+    <div class="password-title">赫睿師營收管理系統</div>
+    <div class="password-sub">請輸入密碼以繼續 (雲端版)</div>
+    <input type="password" id="passwordInput" placeholder="請輸入密碼" autocomplete="off">
+    <button class="btn-primary" id="passwordSubmit">進入系統</button>
+    <div class="password-error" id="passwordError"></div>
+  </div>
+</div>
+
+<div class="app">
+  <header class="ledger-header">
+    <div class="brand">
+      <div>
+        <h1>赫睿師營收管理系統</h1>
+        <p class="tagline">HER RISE, WE RISE. (雲端同步版)</p>
+      </div>
+      <button id="cloudSyncBtn">☁️ 儲存至雲端</button>
+      <button class="btn-ghost" id="exportAllBtn">匯出全部 Excel</button>
+      <button class="btn-ghost" id="importAllBtn">匯入全部 Excel</button>
+      <input type="file" id="importAllFile" accept=".xlsx,.xls" hidden>
+    </div>
+    <div class="nav-groups">
+      <div class="nav-group">
+        <span class="nav-group-label">資料登錄</span>
+        <nav class="view-switch">
+          <button data-view="clients">客戶資料</button>
+          <button data-view="deposit">儲值型客戶</button>
+          <button data-view="entry" class="active">每月營收登錄</button>
+          <button data-view="commission">每月分潤登錄</button>
+          <button data-view="bz" class="crown-btn">不髒媽營收登錄</button>
+        </nav>
+      </div>
+      <div class="nav-group">
+        <span class="nav-group-label">報表分析</span>
+        <nav class="view-switch">
+          <button data-view="overview">年度總覽</button>
+          <button data-view="report">月營收分潤報表</button>
+          <button data-view="clientShare">客戶營收占比</button>
+          <button data-view="bzOverview" class="crown-btn">不髒媽年度總覽</button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <section id="view-clients" hidden>
+    <div class="overview-summary" id="clientsSummary"></div>
+    <div class="month-toolbar">
+      <div></div>
+      <div class="month-actions">
+        <button class="btn-primary" id="addClientBtn">+ 新增客戶</button>
+        <button class="btn-ghost" id="exportClientsBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input id="clientFilterName" type="text" placeholder="🔍 篩選客戶名稱">
+    </div>
+    <div id="clientList"></div>
+  </section>
+
+  <section id="view-entry">
+    <div class="month-tabs year-tabs" id="entryYearTabs"></div>
+    <div class="month-tabs" id="monthTabs"></div>
+    <div class="month-panel" id="monthPanel"></div>
+  </section>
+
+  <section id="view-commission" hidden>
+    <div class="month-tabs year-tabs" id="commissionYearTabs"></div>
+    <div class="month-tabs" id="commissionMonthTabs"></div>
+    <div class="month-panel">
+      <div class="month-toolbar">
+        <div class="rate-field">排序
+          <select id="commissionSortSelect">
+            <option value="">預設順序</option>
+            <option value="client">客戶名稱</option>
+            <option value="category">專案分類</option>
+            <option value="content">專案內容</option>
+          </select>
+        </div>
+        <div class="month-actions">
+          <button class="btn-ghost" id="exportCommissionBtn">匯出 Excel</button>
+        </div>
+      </div>
+      <div class="overview-summary" id="commissionSummary"></div>
+      <div id="commissionSections"></div>
+    </div>
+  </section>
+
+  <section id="view-overview" hidden>
+    <div class="month-tabs year-tabs" id="overviewYearTabs"></div>
+    <div class="month-toolbar">
+      <div></div>
+      <div class="month-actions">
+        <button class="btn-ghost" id="exportOverviewBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="overview-summary" id="overviewSummary"></div>
+    <h3 class="section-heading">儲值型客戶資料</h3>
+    <div class="overview-summary" id="overviewDepositSummary"></div>
+    <div class="chart" id="chart"></div>
+    <div class="chart-legend" id="chartLegend"></div>
+    <div class="table-scroll"><table class="overview-table" id="overviewTable"></table></div>
+    <h3 class="section-heading">各專案分類營收明細</h3>
+    <div class="table-scroll"><table class="overview-table" id="categoryTable"></table></div>
+  </section>
+
+  <section id="view-report" hidden>
+    <div class="month-tabs year-tabs" id="reportYearTabs"></div>
+    <div class="month-tabs" id="reportMonthTabs"></div>
+    <div class="month-panel">
+      <div class="month-toolbar">
+        <div class="rate-field">排序
+          <select id="reportSortSelect">
+            <option value="">預設順序</option>
+            <option value="client">客戶名稱</option>
+            <option value="category">專案分類</option>
+          </select>
+        </div>
+        <div class="month-actions">
+          <button class="btn-ghost" id="exportReportBtn">匯出 Excel</button>
+        </div>
+      </div>
+      <div class="overview-summary" id="reportSummary"></div>
+      <div class="table-scroll"><table class="overview-table" id="reportTable"></table></div>
+    </div>
+  </section>
+
+  <section id="view-clientShare" hidden>
+    <div class="month-tabs year-tabs" id="clientShareYearTabs"></div>
+    <div class="month-toolbar">
+      <div></div>
+      <div class="month-actions">
+        <button class="btn-ghost" id="exportClientShareBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="overview-summary" id="clientShareSummary"></div>
+    <div class="table-scroll"><table class="overview-table" id="clientShareTable"></table></div>
+  </section>
+
+  <section id="view-bzOverview" hidden>
+    <div class="month-tabs year-tabs" id="bzOverviewYearTabs"></div>
+    <div class="month-toolbar">
+      <div></div>
+      <div class="month-actions">
+        <button class="btn-ghost" id="exportBzOverviewBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="overview-summary" id="bzOverviewSummary"></div>
+    <h3 class="section-heading">每月營收長條圖（依收入類別疊加）</h3>
+    <div class="bz-chart-box" id="bzOverviewChart"></div>
+    <h3 class="section-heading">每月營收與淨利明細</h3>
+    <div class="table-scroll"><table class="overview-table" id="bzOverviewTable"></table></div>
+  </section>
+
+  <section id="view-deposit" hidden>
+    <div class="month-tabs year-tabs" id="depositYearTabs"></div>
+    <div class="deposit-summary" id="depositSummary"></div>
+    <div class="month-toolbar">
+      <div class="rate-field">稅率
+        <input id="depositTaxRateInput" type="number" step="0.1"> %
+        <span style="color:var(--ink-soft)">（開立發票時外加）</span>
+      </div>
+      <div class="month-actions">
+        <button class="btn-primary" id="addDepositBtn">+ 新增客戶儲值</button>
+        <button class="btn-ghost" id="exportDepositsBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input id="depositFilterClient" type="text" placeholder="🔍 篩選客戶名稱">
+    </div>
+    <div id="depositList"></div>
+  </section>
+
+  <div class="status-banner" id="statusBanner"></div>
+</div>
+
+<script>
+// ==========================================
+// 雲端連線設定
+// ==========================================
+// ★ 部署 Google Apps Script 後，把「網頁應用程式網址」貼在下方引號內（結尾為 /exec）
+const GAS_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+
+let cloudRev = 0;          // 雲端資料版本號，用來偵測多裝置同時編輯
+let cloudPassword = '';    // 密碼只存在本次瀏覽器分頁，由雲端腳本驗證
+async function cloudCall(action, extra){
+  if(!GAS_URL || GAS_URL.indexOf('https://script.google.com/') !== 0) throw new Error('NO_URL');
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify(Object.assign({ action, password: cloudPassword }, extra || {}))
+  });
+  return await res.json();
+}
+function showGate(msg){
+  const g = document.getElementById('passwordGate');
+  g.style.display = 'flex';
+  const err = document.getElementById('passwordError');
+  if(err) err.textContent = msg || '';
+}
+
+const CATEGORY_OPTIONS = ["VIP私董","商業諮詢","短影音企劃","行銷企劃","教育訓練","其他"];
+const CONTENT_MAP = {
+  "VIP私董": ["營運長進駐計畫"],
+  "商業諮詢": ["A精準診斷單堂","B專案衝刺諮詢","C成長優化計畫","D深度陪跑顧問"],
+  "短影音企劃": ["30 部短影音專案","直播引流影音-包案","直播引流影音-限動","直播引流影音-切片","直播引流影音-IP"],
+  "行銷企劃": ["廣告代操服務","行銷設計企劃"],
+  "教育訓練": ["公開班","企業內訓"],
+  "其他": ["其他"],
+};
+const ALL_CONTENT_OPTIONS = Object.values(CONTENT_MAP).flat();
+function contentOptionsFor(category){
+  return CONTENT_MAP[category] || ALL_CONTENT_OPTIONS;
+}
+const ACCOUNT_OPTIONS = ["澄靖國際","維妮私人","現金交付"];
+const PERSON_OPTIONS = ["維妮","佩佩","錦德","小P"];
+const PAYMENT_METHODS = ["澄靖國際","維妮私帳","現金交付","LINEPAY"];
+const STATUS_OPTIONS = [
+  {v:"paid", t:"已收款", cls:"paid"},
+  {v:"unpaid", t:"未收款", cls:"unpaid"},
+];
+
+let state = { months: [], data: {}, currentMonth: null, currentYear: null, view: "entry", deposits: [], depositTaxRate: 5, clients: [], bz: null };
+
+// ==========================================
+// 不髒媽營收登錄：獨立帳（state.bz），與主帳完全分開
+// 進入該頁時，將 state.months/data/currentMonth/currentYear 暫時切換為不髒媽的資料，
+// 離開時存回 state.bz 並還原主帳；儲存雲端時由 getSaveState() 組回完整結構。
+// ==========================================
+let bzActive = false;
+let mainStash = null;
+function enterBz(){
+  if(bzActive) return;
+  if(!state.bz || !Array.isArray(state.bz.months)) state.bz = {months:[], data:{}, currentMonth:null, currentYear:null};
+  const bz = state.bz;
+  if(!bz.data) bz.data = {};
+  mainStash = {months:state.months, data:state.data, currentMonth:state.currentMonth, currentYear:state.currentYear};
+  if(!bz.months.length){
+    const now = new Date();
+    const id = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    bz.months = [id]; bz.data[id] = { netRate: '', entries: [] };
+    bz.currentMonth = id; bz.currentYear = id.slice(0,4);
+  }
+  if(!bz.currentMonth || !bz.data[bz.currentMonth]){
+    bz.currentMonth = bz.months[bz.months.length-1];
+    bz.currentYear = bz.currentMonth.slice(0,4);
+  }
+  state.months = bz.months; state.data = bz.data;
+  state.currentMonth = bz.currentMonth; state.currentYear = bz.currentYear;
+  bzActive = true;
+}
+function leaveBz(){
+  if(!bzActive) return;
+  state.bz = {months:state.months, data:state.data, currentMonth:state.currentMonth, currentYear:state.currentYear};
+  Object.assign(state, mainStash);
+  mainStash = null; bzActive = false;
+}
+function ensureMainScope(){
+  if(bzActive){ leaveBz(); state.view = 'entry'; }
+}
+function getSaveState(){
+  if(!bzActive) return state;
+  return Object.assign({}, state, mainStash, {
+    view: 'entry',
+    bz: {months:state.months, data:state.data, currentMonth:state.currentMonth, currentYear:state.currentYear}
+  });
+}
+let ready = false;
+let expandedRows = new Set();
+let collapsedShares = new Set();
+let expandedDeposits = new Set();
+let expandedEntries = new Set();
+let depositFilterClient = '';
+let depositCurrentYear = null;
+let entryFilters = { client:'', category:'', content:'' };
+let expandedClients = new Set();
+let clientFilterName = '';
+let commissionSort = '';
+let reportSort = '';
+
+// ==========================================
+// 雲端同步核心邏輯
+// ==========================================
+let syncTimer = null;
+let isSyncing = false;
+
+function migrateLegacyBadStatus(){
+  // 全站取消「呆帳」狀態：舊資料中狀態為 bad 的項目一律改為「未收款」，避免被誤算為已收
+  Object.values(state.data||{}).forEach(month=>{
+    (month.entries||[]).forEach(e=>{
+      if(e.status === 'bad') e.status = 'unpaid';
+    });
+  });
+}
+
+async function fetchFromCloud() {
+  document.getElementById('globalLoader').style.display = 'flex';
+  document.getElementById('loaderText').textContent = '載入雲端資料庫...';
+  try {
+    const resp = await cloudCall('load');
+    if (!resp.ok) {
+      if (resp.error === 'unauthorized') {
+        try{ sessionStorage.removeItem('hersPw'); }catch(e){}
+        showGate('密碼錯誤或已變更，請重新輸入');
+        return false;
+      }
+      throw new Error(resp.error || 'load failed');
+    }
+    cloudRev = Number(resp.rev) || 0;
+    const raw = resp.empty ? { isEmpty: true } : resp.data;
+    if (raw.isEmpty) {
+      // 首次啟用：建立初始空白狀態
+      const now = new Date();
+      const id = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      state.months = [id];
+      state.data[id] = blankMonth();
+      state.currentMonth = id;
+      state.currentYear = id.slice(0, 4);
+      state.deposits = [];
+      state.depositTaxRate = 5;
+      state.clients = [];
+      ready = true;
+      await syncToCloudBackground();
+    } else {
+      state = raw;
+      if (!state.bz) state.bz = null;
+      if (state.view === 'bz' || state.view === 'bzOverview') state.view = 'entry';
+      if (!state.months) state.months = [];
+      if (!state.data) state.data = {};
+      if (!state.deposits) state.deposits = [];
+      if (!state.clients) state.clients = [];
+      if (!state.depositTaxRate) state.depositTaxRate = 5;
+
+      if (state.months.length > 0) {
+         state.currentMonth = state.months[state.months.length - 1];
+         state.currentYear = state.currentMonth.slice(0, 4);
+      } else {
+         const now = new Date();
+         const id = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+         state.months = [id];
+         state.data[id] = blankMonth();
+         state.currentMonth = id;
+         state.currentYear = id.slice(0, 4);
+      }
+      depositCurrentYear = null;
+    }
+    migrateLegacyBadStatus();
+    ready = true;
+    flash('☁️ 雲端資料讀取完成');
+    return true;
+  } catch(e) {
+    console.error(e);
+    if (e.message === 'NO_URL') showGate('尚未設定雲端網址：請把 Apps Script 網頁應用程式網址貼到檔案內的 GAS_URL');
+    else showGate('讀取雲端失敗，請檢查網路後重新整理網頁');
+    return false;
+  } finally {
+    document.getElementById('globalLoader').style.display = 'none';
+  }
+}
+
+let cloudSaving = false, cloudSaveAgain = false, cloudConflict = false;
+async function syncToCloudBackground() {
+  if (!ready || cloudConflict) return;               // 尚未成功載入雲端資料時，絕不寫入，避免覆蓋
+  if (cloudSaving) { cloudSaveAgain = true; return; } // 上一筆儲存尚未完成：結束後再補存一次
+  cloudSaving = true;
+  const btn = document.getElementById('cloudSyncBtn');
+  if (btn) btn.textContent = '☁️ 儲存中...';
+  try {
+    const resp = await cloudCall('save', { baseRev: cloudRev, data: getSaveState() });
+    if (resp.ok) {
+      cloudRev = Number(resp.rev) || cloudRev;
+      if (btn) btn.textContent = '☁️ 儲存成功';
+      setTimeout(() => { if (btn && btn.textContent === '☁️ 儲存成功') btn.textContent = '☁️ 儲存至雲端'; }, 2500);
+    } else if (resp.error === 'conflict') {
+      cloudConflict = true;
+      if (btn) btn.textContent = '⚠ 版本衝突';
+      alert('雲端資料已被其他裝置更新。為避免覆蓋，請重新整理網頁後再編輯。');
+    } else if (resp.error === 'unauthorized') {
+      if (btn) btn.textContent = '⚠ 需重新登入';
+      try{ sessionStorage.removeItem('hersPw'); }catch(e){}
+      showGate('登入已失效，請重新輸入密碼');
+    } else {
+      throw new Error(resp.error || 'save failed');
+    }
+  } catch(e) {
+    if (btn) btn.textContent = '⚠ 儲存失敗';
+    console.error(e);
+  } finally {
+    cloudSaving = false;
+    if (cloudSaveAgain && !cloudConflict) { cloudSaveAgain = false; syncToCloudBackground(); }
+  }
+}
+
+function triggerSync() {
+   clearTimeout(syncTimer);
+   const btn = document.getElementById('cloudSyncBtn');
+   if (btn) btn.textContent = '⏳ 等待儲存...';
+   // 停止動作 1.2 秒後自動同步雲端，不干擾打字
+   syncTimer = setTimeout(syncToCloudBackground, 1200);
+}
+
+
+function entryClientName(e){
+  if(e.isDepositClient && e.depositId){
+    const dep = (state.deposits||[]).find(x=>x.id===e.depositId);
+    return dep ? dep.client : '';
+  }
+  return e.manualClientName || '';
+}
+
+function fmt(n){
+  n = Number(n)||0;
+  return n.toLocaleString('zh-TW', {maximumFractionDigits:1});
+}
+function money(n){
+  n = Number(n)||0;
+  return n===0 ? '' : '$'+fmt(n);
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+function blankEntry(){
+  const today = new Date().toISOString().slice(0,10);
+  return {
+    id: uid(), isDepositClient:false, depositId:null, manualClientName:"", category:"", content:"", note:"", invoiced:false,
+    remitDate:"", remitAmount:0, account:"", installmentCurrent:1, installmentTotal:1,
+    status:"unpaid", unitPrice:0, dateType:"filed", recordDate:today, shares:[]
+  };
+}
+function blankBzEntry(){
+  return { id: uid(), date: new Date().toISOString().slice(0,10), incomeType: "", amount: 0, note: "" };
+}
+function blankMonth(){
+  if(bzActive) return { netRate: '', entries: [] };
+  return { taxRate: 5, entries: [blankEntry()] };
+}
+
+const INDUSTRY_OPTIONS = ["直播電商","製造加工","醫療服務","教育培訓","餐飲食品","直銷微商","其他"];
+
+function nextClientCode(){
+  let max = 0;
+  (state.clients||[]).forEach(c=>{
+    const m = /^H(\d{4})$/.exec(c.code||'');
+    if(m) max = Math.max(max, parseInt(m[1],10));
+  });
+  return 'H' + String(max+1).padStart(4,'0');
+}
+function blankClient(){
+  const today = new Date().toISOString().slice(0,10);
+  return {
+    id: uid(), code: nextClientCode(), name:"", industry:"", invoiced:false, taxId:"", companyTitle:"",
+    note:"", createdDate: today
+  };
+}
+
+function blankDeposit(){
+  return { id: uid(), client:"", category:"", content:"", initialAmount:0, date:"", note:"", invoiced:false, account:"", installmentTotal:1, usages:[] };
+}
+function blankUsage(){ return { id: uid(), date:"", amount:0, note:"" }; }
+function calcDeposit(d, taxRate){
+  const used = (d.usages||[]).reduce((s,u)=>s+(Number(u.amount)||0), 0);
+  const balance = (Number(d.initialAmount)||0) - used;
+  const tax = d.invoiced ? Math.round((Number(d.initialAmount)||0) * (taxRate/100) * 100)/100 : 0;
+  const actualPaid = (Number(d.initialAmount)||0) + tax;
+  return { used, balance, tax, actualPaid };
+}
+function availableDeposits(includeId){
+  return (state.deposits||[])
+    .filter(d=>{
+      const {balance} = calcDeposit(d, state.depositTaxRate);
+      return balance > 0 || d.id === includeId;
+    })
+    .map(d=>({ id: d.id, label: `${d.date || '未填日期'}-${d.client || '未命名客戶'}` }));
+}
+
+async function removeDepositUsageForEntry(entryId, depositId){
+  if(!depositId) return;
+  const dep = (state.deposits||[]).find(x=>x.id===depositId);
+  if(!dep) return;
+  const usageId = 'auto-'+entryId;
+  const before = (dep.usages||[]).length;
+  dep.usages = (dep.usages||[]).filter(u=>u.id!==usageId);
+  if(dep.usages.length!==before) triggerSync();
+}
+
+async function syncDepositUsage(e, oldDepositId){
+  if(oldDepositId && oldDepositId !== e.depositId){
+    await removeDepositUsageForEntry(e.id, oldDepositId);
+  }
+  if(e.depositId){
+    const dep = (state.deposits||[]).find(x=>x.id===e.depositId);
+    if(dep){
+      dep.usages = dep.usages||[];
+      const usageId = 'auto-'+e.id;
+      const amt = Number(e.unitPrice)||0;
+      const useDate = e.recordDate || e.remitDate || '';
+      const label = `自動扣款：${e.content || e.category || '登錄項目'}（${state.currentMonth}）`;
+      const existing = dep.usages.find(u=>u.id===usageId);
+      if(existing){
+        existing.amount = amt;
+        existing.date = useDate || existing.date;
+        existing.note = label;
+      } else {
+        dep.usages.push({ id: usageId, date: useDate, amount: amt, note: label });
+      }
+      triggerSync();
+    }
+  }
+}
+
+function calcEntry(e, taxRate){
+  const tax = e.invoiced ? Math.round(e.remitAmount * (taxRate/100) * 100)/100 : 0;
+  const subtotal = e.remitAmount + tax;
+  return {tax, subtotal};
+}
+function calcMonth(month){
+  let unitTotal=0, taxTotal=0, subtotal=0, unpaid=0, shareTotal=0;
+  const perPerson = {};
+  const categoryTotals = {};
+  (month.entries||[]).forEach(e=>{
+    const {tax, sub} = (()=>{ const c=calcEntry(e, month.taxRate); return {tax:c.tax, sub:c.subtotal}; })();
+    const revenue = e.unitPrice||0;
+    unitTotal += revenue;
+    taxTotal += tax;
+    subtotal += sub;
+    if(e.status==="unpaid") unpaid += revenue;
+    const cat = e.category || '未分類';
+    categoryTotals[cat] = (categoryTotals[cat]||0) + (e.unitPrice||0);
+    (e.shares||[]).forEach(s=>{
+      const amt = Number(s.amount)||0;
+      shareTotal += amt;
+      if(s.name) perPerson[s.name] = (perPerson[s.name]||0)+amt;
+    });
+  });
+  const paid = unitTotal - unpaid;
+  return {unitTotal, taxTotal, subtotal, paid, unpaid, shareTotal, perPerson, categoryTotals};
+}
+
+let flashTimer;
+function flash(msg){
+  const el = document.getElementById('statusBanner');
+  el.textContent = msg;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(()=>{ el.textContent=''; }, 2500);
+}
+
+function exportToExcel(filename, sheetName, aoa){
+  exportMultiSheet(filename, [{name: sheetName, aoa}]);
+}
+function buildWorkbook(sheets){
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(s=>{
+    const ws = XLSX.utils.aoa_to_sheet(s.aoa);
+    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0,31));
+  });
+  return wb;
+}
+function exportMultiSheet(filename, sheets){
+  try{
+    if(typeof XLSX === 'undefined'){
+      flash('匯出功能載入中，請稍後再試一次');
+      return;
+    }
+    const wb = buildWorkbook(sheets);
+    XLSX.writeFile(wb, filename);
+    flash('已匯出 '+filename);
+  }catch(err){
+    flash('匯出失敗，請稍後再試');
+  }
+}
+
+function buildAllSheets(){
+  const sheets = [];
+  const clientHeader = ['客戶代碼','客戶名稱','產業類別','開立發票','統一編號','公司抬頭','建檔日期','備註'];
+  const clientAoa = [clientHeader];
+  state.clients.forEach(c=>{
+    clientAoa.push([c.code, c.name, c.industry, c.invoiced?'是':'否', c.taxId, c.companyTitle, c.createdDate, c.note]);
+  });
+  sheets.push({name:'客戶資料', aoa: clientAoa});
+
+  const depositHeader = ['客戶名稱','專案分類','專案內容','儲值日期','開立發票','儲值帳號','期數','儲值金額','應稅外加','實際支付','已使用額','剩餘餘額','備註'];
+  const depositAoa = [depositHeader];
+  state.deposits.forEach(d=>{
+    const {used, balance, tax, actualPaid} = calcDeposit(d, state.depositTaxRate);
+    depositAoa.push([d.client, d.category, d.content, d.date, d.invoiced?'是':'否', d.account, d.installmentTotal, d.initialAmount, tax, actualPaid, used, balance, d.note]);
+  });
+  sheets.push({name:'儲值型客戶', aoa: depositAoa});
+
+  const entryHeader = ['儲值客戶','客戶名稱','專案分類','專案內容','專案說明','期數','日期類型','日期','專案營收','狀態','匯款日期','匯款金額','開立發票','匯入帳號','業務分潤合計'];
+  const commissionHeader = ['業務員','客戶名稱','專案分類','專案內容','分潤金額','付款方式','項目狀態'];
+  state.months.forEach(m=>{
+    const month = state.data[m];
+    if(!month) return;
+    const entryAoa = [entryHeader];
+    const commissionAoa = [commissionHeader];
+    (month.entries||[]).forEach(e=>{
+      const client = entryClientName(e);
+      const shareTotal = (e.shares||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
+      entryAoa.push([
+        e.isDepositClient?'是':'否', client, e.category, e.content, e.note,
+        `${e.installmentCurrent}-${e.installmentTotal}`,
+        e.dateType==='used'?'使用日期':'建檔日期', e.recordDate, e.unitPrice,
+        STATUS_OPTIONS.find(s=>s.v===e.status)?.t || e.status,
+        e.remitDate, e.remitAmount, e.invoiced?'是':'否', e.account, shareTotal,
+      ]);
+      (e.shares||[]).forEach(s=>{
+        commissionAoa.push([
+          s.name||'（未指定）', client, e.category, e.content,
+          Number(s.amount)||0, s.paidMethod||'未付款',
+          STATUS_OPTIONS.find(x=>x.v===e.status)?.t || e.status,
+        ]);
+      });
+    });
+    sheets.push({name:`登錄_${m}`, aoa: entryAoa});
+    sheets.push({name:`分潤_${m}`, aoa: commissionAoa});
+  });
+  return sheets;
+}
+
+function render(){
+  if(!ready) return;
+  refreshClientDatalist();
+  document.querySelectorAll('.view-switch button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===state.view);
+  });
+  document.getElementById('view-clients').hidden = state.view!=='clients';
+  document.getElementById('view-entry').hidden = !(state.view==='entry' || state.view==='bz');
+  document.getElementById('view-commission').hidden = state.view!=='commission';
+  document.getElementById('view-overview').hidden = state.view!=='overview';
+  document.getElementById('view-report').hidden = state.view!=='report';
+  document.getElementById('view-bzOverview').hidden = state.view!=='bzOverview';
+  document.getElementById('view-clientShare').hidden = state.view!=='clientShare';
+  document.getElementById('view-deposit').hidden = state.view!=='deposit';
+  if(state.view==='clients') renderClients();
+  else if(state.view==='entry') renderEntry();
+  else if(state.view==='bz') renderBz();
+  else if(state.view==='bzOverview') renderBzOverview();
+  else if(state.view==='commission') renderCommission();
+  else if(state.view==='overview') renderOverview();
+  else if(state.view==='report') renderReport();
+  else if(state.view==='clientShare') renderClientShare();
+  else renderDeposits();
+}
+
+function getYears(){
+  return Array.from(new Set(state.months.map(m=>m.slice(0,4)))).sort();
+}
+function getMonthsForYear(year){
+  return state.months.filter(m=>m.startsWith(year)).sort();
+}
+
+function deleteMonthKey(m){
+  if(state.months.length<=1){ flash('至少需保留一個月份'); return; }
+  state.months = state.months.filter(x=>x!==m);
+  delete state.data[m];
+  triggerSync();
+  if(state.currentMonth===m){
+    const remain = getMonthsForYear(state.currentYear);
+    state.currentMonth = remain.length ? remain[remain.length-1] : state.months[state.months.length-1];
+  }
+  render();
+}
+function renameMonthKey(oldKey, newMM){
+  const mm = String(newMM).trim().padStart(2,'0');
+  if(!/^\d{2}$/.test(mm)){ flash('請輸入正確的月份數字'); return; }
+  const newKey = `${oldKey.slice(0,4)}-${mm}`;
+  if(newKey===oldKey) return;
+  if(state.months.includes(newKey)){ flash('這個月份已經存在'); render(); return; }
+  state.data[newKey] = state.data[oldKey];
+  delete state.data[oldKey];
+  state.months = state.months.map(x=>x===oldKey?newKey:x);
+  triggerSync();
+  if(state.currentMonth===oldKey) state.currentMonth = newKey;
+  render();
+}
+function deleteYearKey(y){
+  const years = getYears();
+  if(years.length<=1){ flash('至少需保留一個年份'); return; }
+  const months = getMonthsForYear(y);
+  for(const m of months){
+    state.months = state.months.filter(x=>x!==m);
+    delete state.data[m];
+  }
+  triggerSync();
+  const remainingYears = getYears();
+  state.currentYear = remainingYears[remainingYears.length-1];
+  const remainMonths = getMonthsForYear(state.currentYear);
+  state.currentMonth = remainMonths[remainMonths.length-1];
+  render();
+}
+function renameYearKey(oldYear, newYearRaw){
+  const newYear = String(newYearRaw).trim();
+  if(!/^\d{4}$/.test(newYear)){ flash('請輸入4位數年份'); return; }
+  if(newYear===oldYear) return;
+  const months = getMonthsForYear(oldYear);
+  const collision = months.some(m => state.months.includes(newYear+m.slice(4)));
+  if(collision){ flash('目標年份已有相同月份，無法變更'); render(); return; }
+  for(const m of months){
+    const newKey = newYear + m.slice(4);
+    state.data[newKey] = state.data[m];
+    delete state.data[m];
+    state.months = state.months.map(x=>x===m?newKey:x);
+    if(state.currentMonth===m) state.currentMonth = newKey;
+  }
+  triggerSync();
+  state.currentYear = newYear;
+  render();
+}
+
+function makeArmedDeleteHandler(onConfirm){
+  return function(ev){
+    ev.stopPropagation();
+    const btn = ev.currentTarget;
+    if(!btn.classList.contains('confirm-armed')){
+      btn.classList.add('confirm-armed');
+      btn.textContent = '?';
+      clearTimeout(btn._confirmTimer);
+      btn._confirmTimer = setTimeout(()=>{
+        btn.classList.remove('confirm-armed');
+        btn.textContent = '✕';
+      }, 3000);
+      return;
+    }
+    clearTimeout(btn._confirmTimer);
+    onConfirm();
+  };
+}
+
+function buildYearTabs(containerId, allowAdd=true, editable=false){
+  const tabs = document.getElementById(containerId);
+  if(!tabs) return;
+  tabs.innerHTML = '';
+  getYears().forEach(y=>{
+    const wrap = document.createElement('span');
+    wrap.className = 'tab-wrap';
+    const b = document.createElement('button');
+    b.className = 'month-tab year-tab' + (y===state.currentYear ? ' active':'');
+    b.textContent = y+'年';
+    b.onclick = ()=>{
+      state.currentYear = y;
+      const monthsInYear = getMonthsForYear(y);
+      if(monthsInYear.length){ state.currentMonth = monthsInYear[monthsInYear.length-1]; }
+      render();
+    };
+    if(editable){
+      b.ondblclick = (ev)=>{
+        ev.stopPropagation();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'month-tab-input';
+        input.value = y;
+        input.onkeydown = (kev)=>{
+          if(kev.key==='Enter'){ renameYearKey(y, input.value); }
+          else if(kev.key==='Escape'){ render(); }
+        };
+        input.onblur = ()=>{ if(document.body.contains(input)) render(); };
+        wrap.replaceWith(input);
+        input.focus();
+        input.select();
+      };
+    }
+    wrap.appendChild(b);
+    if(editable){
+      const del = document.createElement('button');
+      del.className = 'tab-delete';
+      del.textContent = '✕';
+      del.title = '刪除此年份（含所有月份）';
+      del.onclick = makeArmedDeleteHandler(()=>deleteYearKey(y));
+      wrap.appendChild(del);
+    }
+    tabs.appendChild(wrap);
+  });
+  if(allowAdd){
+    const add = document.createElement('button');
+    add.className = 'month-tab-add';
+    add.textContent = '+ 新增年份';
+    add.onclick = ()=>addYear(containerId);
+    tabs.appendChild(add);
+  }
+}
+
+function buildMonthTabs(containerId, allowAdd=true, editable=false){
+  const tabs = document.getElementById(containerId);
+  tabs.innerHTML = '';
+  getMonthsForYear(state.currentYear).forEach(m=>{
+    const wrap = document.createElement('span');
+    wrap.className = 'tab-wrap';
+    const b = document.createElement('button');
+    b.className = 'month-tab' + (m===state.currentMonth ? ' active':'');
+    b.textContent = m.slice(5)+'月';
+    b.onclick = ()=>{ state.currentMonth = m; render(); };
+    if(editable){
+      b.ondblclick = (ev)=>{
+        ev.stopPropagation();
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'month-tab-input';
+        input.value = m.slice(5);
+        input.onkeydown = (kev)=>{
+          if(kev.key==='Enter'){ renameMonthKey(m, input.value); }
+          else if(kev.key==='Escape'){ render(); }
+        };
+        input.onblur = ()=>{ if(document.body.contains(input)) render(); };
+        wrap.replaceWith(input);
+        input.focus();
+        input.select();
+      };
+    }
+    wrap.appendChild(b);
+    if(editable){
+      const del = document.createElement('button');
+      del.className = 'tab-delete';
+      del.textContent = '✕';
+      del.title = '刪除此月份';
+      del.onclick = makeArmedDeleteHandler(()=>deleteMonthKey(m));
+      wrap.appendChild(del);
+    }
+    tabs.appendChild(wrap);
+  });
+  if(allowAdd){
+    const add = document.createElement('button');
+    add.className = 'month-tab-add';
+    add.textContent = '+ 新增月份';
+    add.onclick = ()=>addMonth(containerId);
+    tabs.appendChild(add);
+  }
+}
+
+function renderEntry(){
+  buildYearTabs('entryYearTabs', true, true);
+  buildMonthTabs('monthTabs', true, true);
+
+  const panel = document.getElementById('monthPanel');
+  const month = state.data[state.currentMonth];
+  if(!month){ panel.innerHTML=''; return; }
+  const totals = calcMonth(month);
+  const personEntries = Object.entries(totals.perPerson);
+
+  panel.innerHTML = `
+    ${bzActive ? '<h3 class="section-heading">不髒媽營收登錄<span style="font-size:12px;font-weight:400;color:var(--ink-soft);margin-left:10px;">獨立帳，不併入年度總覽與各項報表</span></h3>' : ''}
+    <div class="month-toolbar">
+      <div class="rate-field">稅率
+        <input id="taxRateInput" type="number" step="0.1" value="${month.taxRate}"> %
+        <span style="color:var(--ink-soft)">（開立發票時外加）</span>
+      </div>
+      <div class="month-actions">
+        <button class="btn-primary" id="addEntryBtn">+ 新增項目</button>
+        <button class="btn-ghost" id="exportEntryBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="totals-strip">
+      <div class="total-cell brass"><div class="label">當月營收合計</div><div class="value">$${fmt(totals.unitTotal)}</div></div>
+      <div class="total-cell green"><div class="label">已收金額</div><div class="value">$${fmt(totals.paid)}</div></div>
+      <div class="total-cell red"><div class="label">未收金額</div><div class="value">$${fmt(totals.unpaid)}</div></div>
+      <div class="total-cell brass"><div class="label">業務分潤小計</div><div class="value">$${fmt(totals.shareTotal)}</div></div>
+      ${personEntries.map(([name,amt])=>`
+      <div class="total-cell"><div class="label">${name}</div><div class="value">$${fmt(amt)}</div></div>`).join('')}
+    </div>
+    <div class="filter-bar">
+      <input id="filterClient" type="text" placeholder="🔍 篩選客戶名稱">
+      <select id="filterCategory">
+        <option value="">全部專案分類</option>
+        ${CATEGORY_OPTIONS.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <select id="filterContent">
+        <option value="">全部專案內容</option>
+        ${ALL_CONTENT_OPTIONS.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </div>
+    <div id="rowsHost"></div>
+  `;
+  document.getElementById('taxRateInput').onchange = (ev)=>{
+    month.taxRate = Number(ev.target.value)||0;
+    triggerSync();
+    render();
+  };
+  document.getElementById('addEntryBtn').onclick = ()=>{
+    month.entries.unshift(blankEntry());
+    triggerSync();
+    render();
+  };
+  document.getElementById('exportEntryBtn').onclick = ()=>{
+    const header = ['儲值客戶','客戶名稱','專案分類','專案內容','專案說明','期數','日期類型','日期','專案營收','狀態','匯款日期','匯款金額','開立發票','匯入帳號','業務分潤合計'];
+    const aoa = [header];
+    (month.entries||[]).forEach(e=>{
+      const shareTotal = (e.shares||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
+      aoa.push([
+        e.isDepositClient?'是':'否',
+        entryClientName(e),
+        e.category, e.content, e.note,
+        `${e.installmentCurrent}-${e.installmentTotal}`,
+        e.dateType==='used'?'使用日期':'建檔日期',
+        e.recordDate,
+        e.unitPrice,
+        STATUS_OPTIONS.find(s=>s.v===e.status)?.t || e.status,
+        e.remitDate, e.remitAmount, e.invoiced?'是':'否', e.account,
+        shareTotal,
+      ]);
+    });
+    exportToExcel(`${bzActive?'不髒媽營收登錄':'每月營收登錄'}_${state.currentMonth}.xlsx`, state.currentMonth, aoa);
+  };
+  const filterClientInput = document.getElementById('filterClient');
+  const filterCategoryInput = document.getElementById('filterCategory');
+  const filterContentInput = document.getElementById('filterContent');
+  filterClientInput.value = entryFilters.client;
+  filterCategoryInput.value = entryFilters.category;
+  filterContentInput.value = entryFilters.content;
+  filterClientInput.oninput = ()=>{ entryFilters.client = filterClientInput.value; renderEntry(); };
+  filterCategoryInput.onchange = ()=>{ entryFilters.category = filterCategoryInput.value; renderEntry(); };
+  filterContentInput.onchange = ()=>{ entryFilters.content = filterContentInput.value; renderEntry(); };
+
+  const kwClient = entryFilters.client.trim().toLowerCase();
+  const kwCategory = entryFilters.category.trim().toLowerCase();
+  const kwContent = entryFilters.content.trim().toLowerCase();
+  const filteredEntries = month.entries.filter(e=>{
+    if(kwClient && !entryClientName(e).toLowerCase().includes(kwClient)) return false;
+    if(kwCategory && !(e.category||'').toLowerCase().includes(kwCategory)) return false;
+    if(kwContent && !(e.content||'').toLowerCase().includes(kwContent)) return false;
+    return true;
+  });
+  // 同一客戶的項目分組連續呈現；有未收款項目的客戶群組優先，群組內未收款項目排前
+  const groupOrder = [];
+  const groupMap = new Map();
+  filteredEntries.forEach(e=>{
+    const key = entryClientName(e);
+    if(!groupMap.has(key)){ groupMap.set(key, []); groupOrder.push(key); }
+    groupMap.get(key).push(e);
+  });
+  groupMap.forEach(list=>{
+    list.sort((a,b)=> (a.status==='unpaid'?0:1) - (b.status==='unpaid'?0:1));
+  });
+  const unpaidGroups = groupOrder.filter(k=> groupMap.get(k).some(e=>e.status==='unpaid'));
+  const restGroups = groupOrder.filter(k=> !unpaidGroups.includes(k));
+  const sortedEntries = [];
+  [...unpaidGroups, ...restGroups].forEach(k=> sortedEntries.push(...groupMap.get(k)));
+  filteredEntries.length = 0;
+  filteredEntries.push(...sortedEntries);
+
+  const rowsHost = document.getElementById('rowsHost');
+  if(month.entries.length===0){
+    rowsHost.innerHTML = `<div class="empty-state">這個月還沒有任何項目<br><button class="btn-primary" id="emptyAddBtn">+ 新增第一筆</button></div>`;
+    document.getElementById('emptyAddBtn').onclick = ()=>{
+      month.entries.unshift(blankEntry());
+      triggerSync();
+      render();
+    };
+  } else if(filteredEntries.length===0){
+    rowsHost.innerHTML = `<div class="empty-state">找不到符合篩選條件的項目</div>`;
+  } else {
+    rowsHost.innerHTML = '';
+    filteredEntries.forEach((e,i)=>rowsHost.appendChild(renderRow(e, month, i)));
+  }
+}
+
+const BZ_INCOME_TYPES = ["門市收入","擺攤市集","蝦皮電商","OP─電商","夾娃娃機","其他"];
+
+const bzEditing = new Map(); // entryId -> {isNew, draft}
+function bzAddNew(month){
+  const e = blankBzEntry();
+  month.entries.unshift(e);
+  bzEditing.set(e.id, { isNew:true, draft:{ date:e.date, incomeType:e.incomeType, amount:e.amount, note:e.note } });
+  render();
+}
+
+function normalizeBzMonth(month){
+  if(month.netRate === undefined || month.netRate === null) month.netRate = '';
+  month.entries = (month.entries||[])
+    .filter(e=> ('incomeType' in e) || Number(e.unitPrice)>0 || e.manualClientName)
+    .map(e=>{
+      if('incomeType' in e) return e;
+      return { id: e.id||uid(), date: e.recordDate||'', incomeType: '其他', amount: Number(e.unitPrice)||0, note: e.manualClientName||'' };
+    });
+}
+function calcBzMonth(month){
+  const byType = {};
+  let total = 0;
+  (month.entries||[]).forEach(e=>{
+    const a = Number(e.amount)||0;
+    total += a;
+    const k = e.incomeType || '未分類';
+    byType[k] = (byType[k]||0) + a;
+  });
+  const rate = (month.netRate==='' || month.netRate===null || month.netRate===undefined) ? null : Number(month.netRate);
+  const net = (rate===null || isNaN(rate)) ? null : Math.round(total * rate / 100);
+  return { total, byType, net };
+}
+
+const BZ_COLORS = ['#C9A24B','#5B9279','#D97B72','#7A8FB8','#A57FB5','#6FB3B8','#9A9488'];
+function bzPieHtml(byType, total){
+  if(!(total>0)) return '<div class="bz-pie-empty">本月尚無營收，無法呈現比例</div>';
+  const items = BZ_INCOME_TYPES.map((t,i)=>({t, v:byType[t]||0, c:BZ_COLORS[i]}));
+  if((byType['未分類']||0)>0) items.push({t:'未分類', v:byType['未分類'], c:BZ_COLORS[6]});
+  const nz = items.filter(x=>x.v>0);
+  const cx=80, cy=80, R=76;
+  let paths = '';
+  if(nz.length===1){
+    paths = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${nz[0].c}" stroke="var(--paper)" stroke-width="1.5"/>`;
+  } else {
+    let ang = -Math.PI/2;
+    nz.forEach(x=>{
+      const a = x.v/total*2*Math.PI;
+      const x1=cx+R*Math.cos(ang), y1=cy+R*Math.sin(ang);
+      const x2=cx+R*Math.cos(ang+a), y2=cy+R*Math.sin(ang+a);
+      paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${a>Math.PI?1:0} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${x.c}" stroke="var(--paper)" stroke-width="1.5"/>`;
+      ang += a;
+    });
+  }
+  const legend = items.map(x=>`<li><span class="dot" style="background:${x.c}"></span>${x.t}<em>$${fmt(x.v)}</em><b>${(Math.round(x.v/total*1000)/10).toFixed(1)}%</b></li>`).join('');
+  return `<svg viewBox="0 0 160 160" role="img" aria-label="當月收入類別比例圓餅圖">${paths}</svg><ul class="bz-legend">${legend}</ul>`;
+}
+
+function bzBarSvg(rows){
+  if(!rows.length) return '';
+  const stackKeys = [...BZ_INCOME_TYPES, '未分類'];
+  const W=700, H=290, pl=64, pr=16, pt=26, pb=38;
+  const max = Math.max(1, ...rows.map(r=>r.total));
+  const pow = Math.pow(10, Math.floor(Math.log10(max)));
+  const n = max/pow;
+  const top = (n<=1?1:n<=2?2:n<=5?5:10) * pow;
+  const innerW = W-pl-pr, innerH = H-pt-pb;
+  const band = innerW/rows.length;
+  const bw = Math.min(48, band*0.6);
+  let g = '';
+  for(let i=0;i<=4;i++){
+    const v = top*i/4, y = pt + innerH - innerH*i/4;
+    g += `<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${pl-8}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${fmt(v)}</text>`;
+  }
+  let bars = '';
+  rows.forEach((r,i)=>{
+    const h = innerH * (r.total/top);
+    const x = pl + band*i + (band-bw)/2, y = pt + innerH - h;
+    let acc = 0;
+    stackKeys.forEach((k,ki)=>{
+      const v = (r.byType && r.byType[k]) || 0;
+      if(!(v>0)) return;
+      const sh = innerH * (v/top);
+      const sy = pt + innerH - innerH*((acc+v)/top);
+      bars += `<rect x="${x.toFixed(1)}" y="${sy.toFixed(1)}" width="${bw.toFixed(1)}" height="${sh.toFixed(1)}" fill="${BZ_COLORS[ki]}"><title>${r.m.slice(5)}月 ${k}：$${fmt(v)}</title></rect>`;
+      acc += v;
+    });
+    bars += `<text x="${(x+bw/2).toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--ink)">${r.total? '$'+fmt(r.total) : ''}</text>`;
+    bars += `<text x="${(x+bw/2).toFixed(1)}" y="${H-pb+16}" text-anchor="middle" font-size="11" fill="var(--ink-soft)">${r.m.slice(5)}月</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="每月營收長條圖">${g}${bars}</svg>`;
+}
+
+function renderBz(){
+  buildYearTabs('entryYearTabs', true, true);
+  buildMonthTabs('monthTabs', true, true);
+
+  const panel = document.getElementById('monthPanel');
+  const month = state.data[state.currentMonth];
+  if(!month){ panel.innerHTML = ''; return; }
+  normalizeBzMonth(month);
+  const c = calcBzMonth(month);
+
+  panel.innerHTML = `
+    <h3 class="section-heading">不髒媽營收登錄<span style="font-size:12px;font-weight:400;color:var(--ink-soft);margin-left:10px;">獨立帳，不併入年度總覽與各項報表</span></h3>
+    <div class="month-toolbar">
+      <div></div>
+      <div class="month-actions">
+        <button class="btn-primary" id="bzAddBtn">+ 新增項目</button>
+        <button class="btn-ghost" id="bzExportBtn">匯出 Excel</button>
+      </div>
+    </div>
+    <div class="bz-head">
+      <div class="totals-strip">
+        <div class="total-cell brass"><div class="label">當月營收合計</div><div class="value" id="bzTotal">$${fmt(c.total)}</div></div>
+        <div class="total-cell"><div class="label">淨利率</div>
+          <div class="value"><input id="bzNetRate" class="bz-rate-input" type="number" step="0.1" placeholder="填入" value="${escAttr(month.netRate)}"> %</div></div>
+        <div class="total-cell green"><div class="label">當月淨利</div><div class="value" id="bzNet">${c.net===null ? '—' : '$'+fmt(c.net)}</div></div>
+      </div>
+      <div class="bz-pie">${bzPieHtml(c.byType, c.total)}</div>
+    </div>
+    <div id="bzRows"></div>
+  `;
+
+  const rateInput = document.getElementById('bzNetRate');
+  rateInput.oninput = ()=>{
+    month.netRate = rateInput.value;
+    const cc = calcBzMonth(month);
+    document.getElementById('bzNet').textContent = cc.net===null ? '—' : '$'+fmt(cc.net);
+  };
+  rateInput.onchange = ()=>{ triggerSync(); };
+
+  document.getElementById('bzAddBtn').onclick = ()=>{ bzAddNew(month); };
+  document.getElementById('bzExportBtn').onclick = ()=>{
+    const aoa = [['登錄日期','收入類別','金額','備註']];
+    [...month.entries].sort((a,b)=>String(a.date).localeCompare(String(b.date))).forEach(e=>{
+      aoa.push([e.date, e.incomeType, Number(e.amount)||0, e.note]);
+    });
+    aoa.push([]);
+    aoa.push(['當月營收合計','', c.total, '']);
+    aoa.push(['淨利率(%)','', month.netRate===''?'':Number(month.netRate), '']);
+    aoa.push(['當月淨利','', c.net===null?'':c.net, '']);
+    exportToExcel(`不髒媽營收登錄_${state.currentMonth}.xlsx`, state.currentMonth, aoa);
+  };
+
+  const host = document.getElementById('bzRows');
+  if(month.entries.length===0){
+    host.innerHTML = `<div class="empty-state">這個月還沒有任何項目<br><button class="btn-primary" id="bzEmptyAdd">+ 新增第一筆</button></div>`;
+    document.getElementById('bzEmptyAdd').onclick = ()=>{ bzAddNew(month); };
+    return;
+  }
+  const sorted = [...month.entries].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  sorted.forEach((e,i)=>{
+    const row = document.createElement('div');
+    row.className = 'bz-row ' + (i%2===0 ? 'deposit-alt-a' : 'deposit-alt-b');
+    const ed = bzEditing.get(e.id);
+    if(ed){
+      const d = ed.draft;
+      row.innerHTML = `
+        <div class="field"><label>登錄日期</label><input type="date" value="${escAttr(d.date)}" data-f="date"></div>
+        <div class="field"><label>收入類別</label>
+          <select data-f="incomeType">
+            <option value="" ${!d.incomeType?'selected':''}>請選擇</option>
+            ${BZ_INCOME_TYPES.map(t=>`<option value="${t}" ${d.incomeType===t?'selected':''}>${t}</option>`).join('')}
+          </select></div>
+        <div class="field"><label>金額</label><input type="number" value="${d.amount}" data-f="amount"></div>
+        <div class="field bz-note"><label>備註</label><input value="${escAttr(d.note)}" data-f="note" placeholder="選填"></div>
+        <div class="bz-del bz-btns">
+          <button type="button" class="mini-btn bz-save" data-act="save">儲存</button>
+          <button type="button" class="mini-btn" data-act="cancel">取消</button>
+        </div>
+      `;
+      row.querySelectorAll('[data-f]').forEach(inp=>{
+        inp.addEventListener('input', ()=>{
+          const f = inp.dataset.f;
+          d[f] = (f==='amount') ? (Number(inp.value)||0) : inp.value;
+        });
+      });
+      row.querySelector('[data-act="save"]').onclick = ()=>{
+        Object.assign(e, { date:d.date, incomeType:d.incomeType, amount:Number(d.amount)||0, note:d.note });
+        bzEditing.delete(e.id);
+        triggerSync(); render();
+      };
+      row.querySelector('[data-act="cancel"]').onclick = ()=>{
+        bzEditing.delete(e.id);
+        if(ed.isNew) month.entries = month.entries.filter(x=>x.id!==e.id);
+        render();
+      };
+    } else {
+      row.innerHTML = `
+        <div class="field"><label>登錄日期</label><div class="calc-display">${escAttr(e.date) || '-'}</div></div>
+        <div class="field"><label>收入類別</label><div class="calc-display">${escAttr(e.incomeType) || '未選擇'}</div></div>
+        <div class="field"><label>金額</label><div class="calc-display">$${fmt(e.amount)}</div></div>
+        <div class="field bz-note"><label>備註</label><div class="calc-display">${escAttr(e.note) || '-'}</div></div>
+        <div class="bz-del bz-btns">
+          <button type="button" class="mini-btn bz-edit" data-act="edit">編輯</button>
+          <button type="button" class="mini-btn mini-save" data-act="del">刪除</button>
+        </div>
+      `;
+      row.querySelector('[data-act="edit"]').onclick = ()=>{
+        bzEditing.set(e.id, { isNew:false, draft:{ date:e.date, incomeType:e.incomeType, amount:e.amount, note:e.note } });
+        render();
+      };
+      row.querySelector('[data-act="del"]').onclick = (ev)=>{
+        const btn = ev.currentTarget;
+        if(!btn.classList.contains('confirm-armed')){
+          btn.classList.add('confirm-armed'); btn.textContent = '確定？';
+          clearTimeout(btn._confirmTimer);
+          btn._confirmTimer = setTimeout(()=>{ btn.classList.remove('confirm-armed'); btn.textContent = '刪除'; }, 3000);
+          return;
+        }
+        month.entries = month.entries.filter(x=>x.id!==e.id);
+        triggerSync(); render();
+      };
+    }
+    host.appendChild(row);
+  });
+}
+
+function buildBzOverviewRows(){
+  const months = getMonthsForYear(state.currentYear);
+  const rows = months.map(m=>{
+    const month = state.data[m];
+    normalizeBzMonth(month);
+    const c = calcBzMonth(month);
+    return { m, total:c.total, byType:c.byType, net:c.net, rate:(month.netRate===''?null:Number(month.netRate)) };
+  });
+  const total = rows.reduce((s,r)=>s+r.total,0);
+  const netTotal = rows.reduce((s,r)=>s+(r.net||0),0);
+  const typeTotals = {};
+  BZ_INCOME_TYPES.forEach(t=>{ typeTotals[t] = rows.reduce((s,r)=>s+(r.byType[t]||0),0); });
+  const ratedRevenue = rows.filter(r=>r.net!==null).reduce((s,r)=>s+r.total,0);
+  const avgRate = ratedRevenue>0 ? netTotal/ratedRevenue*100 : null;
+  return {rows, total, netTotal, typeTotals, avgRate};
+}
+
+function bzChartLegendHtml(rows){
+  const keys = [...BZ_INCOME_TYPES];
+  if(rows.some(r=>(r.byType['未分類']||0)>0)) keys.push('未分類');
+  return `<ul class="bz-chart-legend">${keys.map(k=>`<li><span class="dot" style="background:${BZ_COLORS[[...BZ_INCOME_TYPES,'未分類'].indexOf(k)]}"></span>${k}</li>`).join('')}</ul>`;
+}
+
+function renderBzOverview(){
+  buildYearTabs('bzOverviewYearTabs', false);
+  const {rows, total, netTotal, typeTotals} = buildBzOverviewRows();
+  document.getElementById('bzOverviewSummary').innerHTML = `
+    <div class="ov-card"><div class="label">累計月份</div><div class="value">${rows.length}</div></div>
+    <div class="ov-card"><div class="label">累積營收</div><div class="value">$${fmt(total)}</div></div>
+    <div class="ov-card"><div class="label">累積淨利</div><div class="value">$${fmt(netTotal)}</div></div>
+  `;
+  document.getElementById('bzOverviewChart').innerHTML = rows.length ? bzBarSvg(rows) + bzChartLegendHtml(rows) : '<div class="bz-pie-empty" style="padding:16px">這個年度還沒有任何資料</div>';
+  const table = document.getElementById('bzOverviewTable');
+  if(rows.length===0){
+    table.innerHTML = `<tbody><tr><td style="padding:24px;text-align:center;">這個年度還沒有任何資料</td></tr></tbody>`;
+    return;
+  }
+  table.innerHTML = `
+    <thead><tr>
+      <th>月份</th><th>當月營收合計</th><th>淨利</th>
+      ${BZ_INCOME_TYPES.map(t=>`<th>${t}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${r.m}</td>
+        <td>${money(r.total)}</td>
+        <td>${r.net===null ? '—' : money(r.net)}</td>
+        ${BZ_INCOME_TYPES.map(t=>`<td>${money(r.byType[t]||0)}</td>`).join('')}
+      </tr>`).join('')}
+      <tr class="total-row">
+        <td>年度總計</td>
+        <td>${money(total)}</td>
+        <td>${money(netTotal)}</td>
+        ${BZ_INCOME_TYPES.map(t=>`<td>${money(typeTotals[t])}</td>`).join('')}
+      </tr>
+    </tbody>
+  `;
+}
+
+function exportBzOverviewToExcel(){
+  const {rows, total, netTotal, typeTotals} = buildBzOverviewRows();
+  const aoa = [['月份','當月營收合計','淨利', ...BZ_INCOME_TYPES]];
+  rows.forEach(r=> aoa.push([r.m, r.total, r.net===null?'':r.net, ...BZ_INCOME_TYPES.map(t=>r.byType[t]||0)]));
+  aoa.push(['年度總計', total, netTotal, ...BZ_INCOME_TYPES.map(t=>typeTotals[t])]);
+  exportToExcel(`不髒媽年度總覽_${state.currentYear}.xlsx`, '不髒媽年度總覽', aoa);
+}
+
+function renderRow(e, month, index){
+  const row = document.createElement('div');
+  row.className = 'ledger-row ' + (index % 2 === 0 ? 'deposit-alt-a' : 'deposit-alt-b');
+  const {tax, subtotal} = calcEntry(e, month.taxRate);
+  const statusInfo = STATUS_OPTIONS.find(s=>s.v===e.status);
+  const isOpen = expandedRows.has(e.id);
+  const rowCollapsed = !expandedEntries.has(e.id);
+  const clientName = entryClientName(e);
+  const shareTotal = (e.shares||[]).reduce((s,x)=>s+(Number(x.amount)||0),0);
+
+  row.innerHTML = `
+    <div class="card-actions">
+      <button type="button" class="mini-btn mini-save" data-act="deleterow">刪除</button>
+    </div>
+    <div class="deposit-summary-bar" data-act="togglerow">
+      <div class="ds-row ds-row1 entry-row1">
+        <span class="ds-name">${escAttr(clientName) || '（無客戶）'}</span>
+        <span class="ds-item">${escAttr(e.category) || '-'}</span>
+        <span class="ds-warn">${e.status==='unpaid' ? '⚠ 未收款' : ''}</span>
+        <span class="ds-caret">${rowCollapsed ? '▾' : '▴'}</span>
+      </div>
+      <div class="ds-row ds-row2 entry-row2">
+        <span class="ds-item">專案營收 <b>$${fmt(e.unitPrice)}</b></span>
+        <span class="ds-item">業務分潤 <b>$${fmt(shareTotal)}</b></span>
+      </div>
+    </div>
+    ${rowCollapsed ? '' : `
+    <div class="row-grid">
+      ${bzActive ? '' : `
+      <div class="field"><label>儲值客戶</label>
+        <select data-f="isDepositClient">
+          <option value="0" ${!e.isDepositClient?'selected':''}>否</option>
+          <option value="1" ${e.isDepositClient?'selected':''}>是</option>
+        </select></div>
+      <div class="field"><label>客戶單號</label>
+        <select data-f="depositId" ${!e.isDepositClient?'disabled':''}>
+          <option value="">請選擇</option>
+          ${availableDeposits(e.depositId).map(dep=>`<option value="${dep.id}" ${e.depositId===dep.id?'selected':''}>${escAttr(dep.label)}</option>`).join('')}
+        </select></div>
+      `}
+      <div class="field"><label>客戶名稱</label>
+        ${(e.isDepositClient && !bzActive)
+          ? `<div class="calc-display">${escAttr(clientName) || '-'}</div>`
+          : `<input list="clientNameList" value="${escAttr(e.manualClientName)}" data-f="manualClientName" placeholder="輸入客戶名稱">`}
+      </div>
+      <div class="field"><label>專案分類</label>
+        <input list="catlist" value="${escAttr(e.category)}" data-f="category"></div>
+      <div class="field"><label>專案內容</label>
+        <input list="contentlist-${e.id}" value="${escAttr(e.content)}" data-f="content" placeholder="選擇或輸入">
+        <datalist id="contentlist-${e.id}">${contentOptionsFor(e.category).map(c=>`<option value="${escAttr(c)}">`).join('')}</datalist>
+      </div>
+      <div class="field"><label>專案說明</label>
+        <input value="${escAttr(e.note)}" data-f="note" placeholder="補充資料"></div>
+      <div class="field"><label>期數</label>
+        <div class="installment-pair">
+          <input type="number" min="1" max="99" value="${e.installmentCurrent}" data-f="installmentCurrent" class="inst-num">
+          <span>-</span>
+          <input type="number" min="1" max="99" value="${e.installmentTotal}" data-f="installmentTotal" class="inst-num">
+        </div>
+      </div>
+      <div class="field"><label>
+          <span class="date-mode-toggle">
+            <button type="button" class="dm-btn ${e.dateType!=='used'?'active':''}" data-act="setdatemode" data-mode="filed">建檔日期</button>
+            <button type="button" class="dm-btn ${e.dateType==='used'?'active':''}" data-act="setdatemode" data-mode="used">使用日期</button>
+          </span>
+        </label>
+        <input type="date" value="${escAttr(e.recordDate)}" data-f="recordDate"></div>
+      <div class="field"><label>專案營收/已使用額</label>
+        <input type="number" value="${e.unitPrice}" data-f="unitPrice"></div>
+      <div class="field"><label>狀態</label>
+        <button type="button" class="stamp stamp-toggle ${statusInfo.cls}" data-act="togglestatus">
+          ${statusInfo.t} ${isOpen ? '▴' : '▾'}
+        </button>
+      </div>
+    </div>
+    ${isOpen ? `
+    <div class="status-detail">
+      <div class="field"><label>狀態</label>
+        <select data-f="status">
+          ${STATUS_OPTIONS.map(s=>`<option value="${s.v}" ${e.status===s.v?'selected':''}>${s.t}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>匯款日期</label>
+        <input type="date" value="${escAttr(e.remitDate)}" data-f="remitDate"></div>
+      <div class="field"><label>匯款金額</label>
+        <input type="number" value="${e.remitAmount}" data-f="remitAmount"></div>
+      <div class="field"><label>開立發票</label>
+        <select data-f="invoiced">
+          <option value="0" ${!e.invoiced?'selected':''}>否</option>
+          <option value="1" ${e.invoiced?'selected':''}>是</option>
+        </select></div>
+      <div class="field"><label>匯入帳號</label>
+        <select data-f="account">
+          <option value="" ${!e.account?'selected':''}>請選擇</option>
+          ${ACCOUNT_OPTIONS.map(a=>`<option value="${a}" ${e.account===a?'selected':''}>${a}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>應稅外加</label>
+        <div class="calc-display">$${fmt(tax)}</div></div>
+      <div class="field"><label>專案總營收</label>
+        <div class="calc-display">$${fmt(subtotal)}</div></div>
+    </div>` : ''}
+    <div class="row-sub">
+      <div class="shares">
+        <div class="shares-head">
+          <button type="button" class="shares-toggle" data-act="toggleshares">
+            <span>業務分潤（${(e.shares||[]).length}）</span> ${collapsedShares.has(e.id) ? '▾' : '▴'}
+          </button>
+          <button data-act="addshare">+ 新增分潤</button>
+        </div>
+        <div class="share-list" ${collapsedShares.has(e.id) ? 'hidden' : ''}></div>
+      </div>
+    </div>
+    `}
+  `;
+
+  row.querySelector('[data-act="togglerow"]').onclick = ()=>{
+    if(expandedEntries.has(e.id)) expandedEntries.delete(e.id);
+    else expandedEntries.add(e.id);
+    render();
+  };
+  row.querySelector('[data-act="deleterow"]').onclick = async (ev)=>{
+    const btn = ev.currentTarget;
+    if(!btn.classList.contains('confirm-armed')){
+      btn.classList.add('confirm-armed');
+      btn.textContent = '確定？';
+      clearTimeout(btn._confirmTimer);
+      btn._confirmTimer = setTimeout(()=>{
+        btn.classList.remove('confirm-armed');
+        btn.textContent = '刪除';
+      }, 3000);
+      return;
+    }
+    clearTimeout(btn._confirmTimer);
+    month.entries = month.entries.filter(x=>x.id!==e.id);
+    await removeDepositUsageForEntry(e.id, e.depositId);
+    triggerSync();
+    render();
+  };
+
+  if(rowCollapsed) return row;
+
+  const shareList = row.querySelector('.share-list');
+  (e.shares||[]).forEach((s,i)=>{
+    const sr = document.createElement('div');
+    sr.className = 'share-row';
+    const isCustom = !!s.name && !PERSON_OPTIONS.includes(s.name);
+    sr.innerHTML = `
+      <select class="name-select">
+        ${PERSON_OPTIONS.map(p=>`<option value="${p}" ${s.name===p?'selected':''}>${p}</option>`).join('')}
+        <option value="__other__" ${isCustom || !s.name ? 'selected':''}>其他</option>
+      </select>
+      <input class="name-custom" placeholder="輸入姓名" value="${escAttr(isCustom?s.name:'')}"
+        style="display:${(isCustom||!s.name)?'inline-block':'none'}">
+      <input class="amount" type="number" placeholder="金額" value="${s.amount}">
+      <span class="paid-badge ${s.paidMethod ? 'is-paid':'is-unpaid'}">${escAttr(s.paidMethod) || '未付款'}</span>
+      <button class="delete-share" title="刪除">✕</button>
+    `;
+    const selectEl = sr.querySelector('.name-select');
+    const customInp = sr.querySelector('.name-custom');
+    const amtInp = sr.querySelector('.amount');
+    const delBtn = sr.querySelector('.delete-share');
+    selectEl.onchange = ()=>{
+      if(selectEl.value==='__other__'){
+        customInp.style.display = 'inline-block';
+        s.name = customInp.value;
+        customInp.focus();
+      } else {
+        customInp.style.display = 'none';
+        s.name = selectEl.value;
+      }
+      triggerSync();
+    };
+    customInp.onchange = ()=>{ s.name = customInp.value; triggerSync(); };
+    amtInp.onchange = ()=>{ s.amount = Number(amtInp.value)||0; triggerSync(); render(); };
+    delBtn.onclick = ()=>{ e.shares.splice(i,1); triggerSync(); render(); };
+    shareList.appendChild(sr);
+  });
+
+  row.querySelectorAll('[data-f]').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const f = inp.dataset.f;
+      let v = inp.value;
+      const oldDepositId = e.depositId;
+      if(f==='invoiced' || f==='isDepositClient') v = v==='1';
+      else if(f==='unitPrice' || f==='installmentCurrent' || f==='installmentTotal' || f==='remitAmount') v = Number(v)||0;
+      else if(f==='depositId') v = v || null;
+      e[f] = v;
+      if(f==='isDepositClient' && !v){
+        e.depositId = null;
+      }
+      if(f==='depositId' && v){
+        const dep = (state.deposits||[]).find(x=>x.id===v);
+        if(dep){
+          e.status = 'paid';
+          e.remitDate = dep.date;
+          e.remitAmount = Number(dep.initialAmount)||0;
+          e.invoiced = !!dep.invoiced;
+          e.account = dep.account;
+          e.category = dep.category;
+          e.content = dep.content;
+          e.note = dep.note;
+        }
+      }
+      if(f==='depositId' || (f==='isDepositClient' && !v)){
+        await syncDepositUsage(e, oldDepositId);
+      } else if((f==='unitPrice' || f==='recordDate') && e.depositId){
+        await syncDepositUsage(e, e.depositId);
+      }
+      triggerSync();
+      render();
+    });
+  });
+  row.querySelector('[data-act="addshare"]').onclick = ()=>{
+    e.shares = e.shares||[];
+    e.shares.push({name: PERSON_OPTIONS[0], amount:0, paid:false, paidMethod:null});
+    collapsedShares.delete(e.id);
+    triggerSync();
+    render();
+  };
+  row.querySelector('[data-act="toggleshares"]').onclick = ()=>{
+    if(collapsedShares.has(e.id)) collapsedShares.delete(e.id);
+    else collapsedShares.add(e.id);
+    render();
+  };
+  row.querySelector('[data-act="togglestatus"]').onclick = ()=>{
+    if(expandedRows.has(e.id)) expandedRows.delete(e.id);
+    else expandedRows.add(e.id);
+    render();
+  };
+  row.querySelectorAll('[data-act="setdatemode"]').forEach(btn=>{
+    btn.onclick = ()=>{
+      e.dateType = btn.dataset.mode;
+      triggerSync();
+      render();
+    };
+  });
+  return row;
+}
+
+function escAttr(s){ return String(s||'').replace(/"/g,'&quot;'); }
+
+const CATEGORY_PALETTE = ["#C9A24B","#5B9279","#7FA8C9","#D97B72","#B08C3E","#8FA0AE","#A98BC9","#D4B15C"];
+function categoryColor(cat, catList){
+  const idx = catList.indexOf(cat);
+  return CATEGORY_PALETTE[idx % CATEGORY_PALETTE.length];
+}
+
+function renderReport(){
+  buildYearTabs('reportYearTabs', false);
+  buildMonthTabs('reportMonthTabs', false);
+
+  const sortSelect = document.getElementById('reportSortSelect');
+  sortSelect.value = reportSort;
+  sortSelect.onchange = ()=>{ reportSort = sortSelect.value; renderReport(); };
+
+  const summary = document.getElementById('reportSummary');
+  const table = document.getElementById('reportTable');
+  const month = state.data[state.currentMonth];
+  if(!month){ summary.innerHTML=''; table.innerHTML=''; return; }
+
+  const peopleSet = new Set();
+  (month.entries||[]).forEach(e=>(e.shares||[]).forEach(s=>{ if(s.name) peopleSet.add(s.name); }));
+  const people = Array.from(peopleSet);
+
+  const rows = (month.entries||[]).map(e=>{
+    const byPerson = {};
+    (e.shares||[]).forEach(s=>{
+      if(!s.name) return;
+      byPerson[s.name] = (byPerson[s.name]||0) + (Number(s.amount)||0);
+    });
+    const shareTotal = Object.values(byPerson).reduce((s,v)=>s+v,0);
+    return {
+      client: entryClientName(e) || '-',
+      category: e.category || '-',
+      revenue: e.unitPrice||0,
+      byPerson,
+      shareTotal,
+    };
+  });
+
+  if(reportSort){
+    rows.sort((a,b)=>String(a[reportSort]).localeCompare(String(b[reportSort]), 'zh-Hant'));
+  }
+
+  const revenueTotal = rows.reduce((s,r)=>s+r.revenue,0);
+  const shareTotalAll = rows.reduce((s,r)=>s+r.shareTotal,0);
+
+  summary.innerHTML = `
+    <div class="ov-card"><div class="label">項目數</div><div class="value">${rows.length}</div></div>
+    <div class="ov-card"><div class="label">當月營收合計</div><div class="value">${money(revenueTotal)}</div></div>
+    <div class="ov-card"><div class="label">業務分潤合計</div><div class="value">${money(shareTotalAll)}</div></div>
+  `;
+
+  if(rows.length===0){
+    table.innerHTML = `<tbody><tr><td class="empty-state">這個月還沒有任何登錄項目</td></tr></tbody>`;
+    return;
+  }
+
+  table.innerHTML = `
+    <thead><tr>
+      <th>客戶名稱</th><th>專案分類</th><th>專案營收</th>
+      ${people.map(p=>`<th>業務分潤─${p}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${escAttr(r.client)}</td>
+        <td>${escAttr(r.category)}</td>
+        <td>${money(r.revenue)}</td>
+        ${people.map(p=>`<td>${money(r.byPerson[p]||0)}</td>`).join('')}
+      </tr>`).join('')}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="2">合計</td>
+        <td>${money(revenueTotal)}</td>
+        ${people.map(p=>`<td>${money(rows.reduce((s,r)=>s+(r.byPerson[p]||0),0))}</td>`).join('')}
+      </tr>
+    </tfoot>
+  `;
+}
+
+function renderCommission(){
+  buildYearTabs('commissionYearTabs', false);
+  buildMonthTabs('commissionMonthTabs', false);
+
+  const sortSelect = document.getElementById('commissionSortSelect');
+  sortSelect.value = commissionSort;
+  sortSelect.onchange = ()=>{ commissionSort = sortSelect.value; renderCommission(); };
+
+  const summary = document.getElementById('commissionSummary');
+  const sections = document.getElementById('commissionSections');
+  const month = state.data[state.currentMonth];
+  if(!month){
+    summary.innerHTML = '';
+    sections.innerHTML = '';
+    return;
+  }
+
+  const rows = [];
+  (month.entries||[]).forEach(e=>{
+    const client = entryClientName(e);
+    (e.shares||[]).forEach(s=>{
+      rows.push({
+        person: s.name || '（未指定）',
+        category: e.category || '-',
+        content: e.content || '-',
+        client: client || '-',
+        amount: Number(s.amount)||0,
+        paidMethod: s.paidMethod || '',
+        entryStatus: e.status,
+        entryStatusLabel: STATUS_OPTIONS.find(x=>x.v===e.status)?.t || e.status,
+        shareRef: s,
+      });
+    });
+  });
+
+  const total = rows.reduce((s,r)=>s+r.amount,0);
+  const paidTotal = rows.filter(r=>r.paidMethod).reduce((s,r)=>s+r.amount,0);
+  const unpaidTotal = total - paidTotal;
+  const peopleList = Array.from(new Set(rows.map(r=>r.person)));
+
+  summary.innerHTML = `
+    <div class="ov-card"><div class="label">本月分潤總額</div><div class="value">$${fmt(total)}</div></div>
+    <div class="ov-card"><div class="label">已付分潤</div><div class="value">$${fmt(paidTotal)}</div></div>
+    <div class="ov-card"><div class="label">未付分潤</div><div class="value">$${fmt(unpaidTotal)}</div></div>
+    <div class="ov-card"><div class="label">分潤人數</div><div class="value">${peopleList.length}</div></div>
+  `;
+
+  if(rows.length===0){
+    sections.innerHTML = `<div class="empty-state">這個月還沒有任何業務分潤紀錄</div>`;
+    return;
+  }
+
+  const sortKey = commissionSort;
+  const sortFn = (a,b)=> sortKey ? String(a[sortKey]).localeCompare(String(b[sortKey]), 'zh-Hant') : 0;
+
+  const flatRenderOrder = [];
+  sections.innerHTML = peopleList.map(person=>{
+    const personRows = rows.filter(r=>r.person===person).sort(sortFn);
+    const personPaid = personRows.filter(r=>r.paidMethod).reduce((s,r)=>s+r.amount,0);
+    const personUnpaid = personRows.filter(r=>!r.paidMethod).reduce((s,r)=>s+r.amount,0);
+    const personTotal = personPaid + personUnpaid;
+    personRows.forEach(r=>flatRenderOrder.push(r));
+    return `
+    <div class="commission-block">
+      <div class="commission-block-head">
+        <span class="ds-name">${escAttr(person)}</span>
+        <span class="ds-item">已付分潤 <b>$${fmt(personPaid)}</b></span>
+        <span class="ds-item">未付分潤 <b>$${fmt(personUnpaid)}</b></span>
+        <span class="ds-item">小計 <b>$${fmt(personTotal)}</b></span>
+      </div>
+      <div class="table-scroll"><table class="overview-table">
+        <thead><tr>
+          <th>客戶名稱</th><th>專案分類</th><th>專案內容</th><th>分潤金額</th><th>付款方式</th><th>項目狀態</th>
+        </tr></thead>
+        <tbody>
+          ${personRows.map(r=>`<tr>
+            <td>${escAttr(r.client)}</td>
+            <td>${escAttr(r.category)}</td>
+            <td>${escAttr(r.content)}</td>
+            <td>$${fmt(r.amount)}</td>
+            <td>
+              <select class="commission-pay-select ${!r.paidMethod?'text-red':''}">
+                <option value="" ${!r.paidMethod?'selected':''}>未付款</option>
+                ${PAYMENT_METHODS.map(m=>`<option value="${m}" ${r.paidMethod===m?'selected':''}>${m}</option>`).join('')}
+              </select>
+            </td>
+            <td class="${r.entryStatus==='unpaid'?'text-red':''}">${escAttr(r.entryStatusLabel)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+  }).join('');
+
+  sections.querySelectorAll('.commission-pay-select').forEach((sel, i)=>{
+    const r = flatRenderOrder[i];
+    sel.onchange = ()=>{
+      r.shareRef.paidMethod = sel.value || null;
+      r.shareRef.paid = !!sel.value;
+      sel.classList.toggle('text-red', !sel.value);
+      triggerSync();
+      renderCommission();
+    };
+  });
+}
+
+async function importAllFromExcel(file){
+  ensureMainScope();
+  try{
+    if(typeof XLSX === 'undefined'){
+      flash('匯入功能載入中，請稍後再試一次');
+      return;
+    }
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array'});
+    const sheetRows = (name)=>{
+      if(!wb.SheetNames.includes(name)) return [];
+      return XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, defval:''});
+    };
+
+    if(wb.SheetNames.includes('客戶資料')){
+      const rows = sheetRows('客戶資料');
+      const newClients = [];
+      for(let i=1;i<rows.length;i++){
+        const r = rows[i]; if(!r || r.length===0) continue;
+        newClients.push({
+          id: uid(), code: r[0]||nextClientCode(), name: r[1]||'', industry: r[2]||'',
+          invoiced: r[3]==='是', taxId: r[4]||'', companyTitle: r[5]||'',
+          createdDate: r[6]||'', note: r[7]||'',
+        });
+      }
+      state.clients = newClients;
+    }
+
+    if(wb.SheetNames.includes('儲值型客戶')){
+      const rows = sheetRows('儲值型客戶');
+      const newDeposits = [];
+      for(let i=1;i<rows.length;i++){
+        const r = rows[i]; if(!r || r.length===0) continue;
+        newDeposits.push({
+          id: uid(), client: r[0]||'', category: r[1]||'', content: r[2]||'', date: r[3]||'',
+          invoiced: r[4]==='是', account: r[5]||'', installmentTotal: Number(r[6])||1,
+          initialAmount: Number(r[7])||0, note: r[12]||'', usages: [],
+        });
+      }
+      state.deposits = newDeposits;
+    }
+
+    const monthSheets = wb.SheetNames.filter(n=>n.startsWith('登錄_'));
+    if(monthSheets.length){
+      const newMonths = [];
+      const newData = {};
+      monthSheets.forEach(sheetName=>{
+        const m = sheetName.slice(3);
+        const entryRows = sheetRows(sheetName);
+        const commissionRows = sheetRows('分潤_'+m);
+
+        const buckets = {};
+        for(let i=1;i<commissionRows.length;i++){
+          const cr = commissionRows[i]; if(!cr || cr.length===0) continue;
+          const key = `${cr[1]||''}|${cr[2]||''}|${cr[3]||''}`;
+          buckets[key] = buckets[key] || [];
+          const paidMethod = (cr[5] && cr[5]!=='未付款') ? cr[5] : null;
+          buckets[key].push({ id: uid(), name: cr[0]||'', amount: Number(cr[4])||0, paidMethod, paid: !!paidMethod });
+        }
+
+        const entries = [];
+        for(let i=1;i<entryRows.length;i++){
+          const r = entryRows[i]; if(!r || r.length===0) continue;
+          const client = r[1]||'';
+          const category = r[2]||'';
+          const content = r[3]||'';
+          const instParts = String(r[5]||'1-1').split('-');
+          const statusObj = STATUS_OPTIONS.find(s=>s.t===r[9]);
+          const key = `${client}|${category}|${content}`;
+          const shares = (buckets[key]||[]).splice(0, (buckets[key]||[]).length);
+
+          entries.push({
+            id: uid(), isDepositClient:false, depositId:null, manualClientName: client,
+            category, content, note: r[4]||'', invoiced: r[12]==='是',
+            remitDate: r[10]||'', remitAmount: Number(r[11])||0, account: r[13]||'',
+            installmentCurrent: Number(instParts[0])||1, installmentTotal: Number(instParts[1])||1,
+            status: statusObj ? statusObj.v : 'unpaid', unitPrice: Number(r[8])||0,
+            dateType: r[6]==='使用日期' ? 'used' : 'filed', recordDate: r[7]||'',
+            shares,
+          });
+        }
+        newMonths.push(m);
+        newData[m] = { taxRate: 5, entries };
+      });
+      state.months = newMonths;
+      state.data = newData;
+      state.currentMonth = newMonths[newMonths.length-1];
+    }
+
+    document.getElementById('globalLoader').style.display = 'flex';
+    document.getElementById('loaderText').textContent = '匯入並同步至雲端中...';
+    await syncToCloudBackground();
+    document.getElementById('globalLoader').style.display = 'none';
+
+    flash('已匯入全部資料，並同步至雲端');
+    render();
+  }catch(err){
+    document.getElementById('globalLoader').style.display = 'none';
+    flash('匯入失敗，請確認檔案格式是否正確');
+  }
+}
+
+function exportAllToExcel(){
+  ensureMainScope();
+  exportMultiSheet('赫睿師營收管理系統_全部資料.xlsx', buildAllSheets());
+}
+
+function buildClientShareRows(){
+  const months = getMonthsForYear(state.currentYear);
+  const clientMap = new Map(); // name -> {monthKey: amount}
+  months.forEach(m=>{
+    const month = state.data[m];
+    (month?.entries||[]).forEach(e=>{
+      const name = entryClientName(e) || '未填客戶';
+      const amt = e.unitPrice||0;
+      if(!clientMap.has(name)) clientMap.set(name, {});
+      const rec = clientMap.get(name);
+      rec[m] = (rec[m]||0) + amt;
+    });
+  });
+  const rows = Array.from(clientMap.entries()).map(([name, rec])=>{
+    const yearTotal = months.reduce((s,m)=> s+(rec[m]||0), 0);
+    return {name, rec, yearTotal};
+  }).sort((a,b)=> b.yearTotal - a.yearTotal);
+  const grandTotal = rows.reduce((s,r)=>s+r.yearTotal,0);
+  return {months, rows, grandTotal};
+}
+
+function renderClientShare(){
+  buildYearTabs('clientShareYearTabs', false);
+
+  const summary = document.getElementById('clientShareSummary');
+  const table = document.getElementById('clientShareTable');
+  const {months, rows, grandTotal} = buildClientShareRows();
+
+  summary.innerHTML = `
+    <div class="ov-card"><div class="label">往來客戶數</div><div class="value">${rows.length}</div></div>
+    <div class="ov-card"><div class="label">年度營收合計</div><div class="value">$${fmt(grandTotal)}</div></div>
+  `;
+
+  if(rows.length===0){
+    table.innerHTML = `<tbody><tr><td class="empty-state" style="padding:24px;text-align:center;">這個年度還沒有任何營收資料</td></tr></tbody>`;
+    return;
+  }
+
+  const monthTotals = months.map(m=> rows.reduce((s,r)=>s+(r.rec[m]||0), 0));
+
+  table.innerHTML = `
+    <thead><tr>
+      <th>客戶名稱</th>
+      ${months.map(m=>`<th>${m.slice(5)}月</th>`).join('')}
+      <th>年度營收</th>
+      <th>營收占比</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${escAttr(r.name)}</td>
+        ${months.map(m=>`<td>${r.rec[m] ? money(r.rec[m]) : '-'}</td>`).join('')}
+        <td><b>${money(r.yearTotal)}</b></td>
+        <td>${grandTotal>0 ? Math.round(r.yearTotal/grandTotal*100) : 0}%</td>
+      </tr>`).join('')}
+      <tr class="total-row">
+        <td>年度總計</td>
+        ${monthTotals.map(t=>`<td>${money(t)}</td>`).join('')}
+        <td>${money(grandTotal)}</td>
+        <td>100%</td>
+      </tr>
+    </tbody>
+  `;
+}
+
+function exportClientShareToExcel(){
+  const {months, rows, grandTotal} = buildClientShareRows();
+  const monthTotals = months.map(m=> rows.reduce((s,r)=>s+(r.rec[m]||0), 0));
+  const header = ['客戶名稱', ...months.map(m=>m.slice(5)+'月'), '年度營收', '營收占比'];
+  const aoa = [header];
+  rows.forEach(r=>{
+    aoa.push([r.name, ...months.map(m=>r.rec[m]||0), r.yearTotal, grandTotal>0 ? Math.round(r.yearTotal/grandTotal*100)+'%' : '0%']);
+  });
+  aoa.push(['年度總計', ...monthTotals, grandTotal, '100%']);
+  exportToExcel(`客戶營收占比_${state.currentYear}.xlsx`, '客戶營收占比', aoa);
+}
+
+function exportOverviewToExcel(){
+  const rows = getMonthsForYear(state.currentYear).map(m=>({m, t: calcMonth(state.data[m])}));
+  const yearTotal = rows.reduce((acc,r)=>{
+    acc.unitTotal += r.t.unitTotal; acc.paid += r.t.paid; acc.unpaid += r.t.unpaid;
+    acc.shareTotal += r.t.shareTotal;
+    return acc;
+  }, {unitTotal:0, paid:0, unpaid:0, shareTotal:0});
+  const peopleSet = new Set();
+  rows.forEach(r=>Object.keys(r.t.perPerson).forEach(n=>peopleSet.add(n)));
+  const people = Array.from(peopleSet);
+
+  const sheet1 = [['月份','當月營收合計','已收','未收','分潤合計', ...people]];
+  rows.forEach(r=>{
+    sheet1.push([r.m, r.t.unitTotal, r.t.paid, r.t.unpaid, r.t.shareTotal, ...people.map(p=>r.t.perPerson[p]||0)]);
+  });
+  sheet1.push(['年度總計', yearTotal.unitTotal, yearTotal.paid, yearTotal.unpaid, yearTotal.shareTotal,
+    ...people.map(p=>rows.reduce((s,r)=>s+(r.t.perPerson[p]||0),0))]);
+
+  const catYearTotals = {};
+  CATEGORY_OPTIONS.forEach(c=>{ catYearTotals[c] = rows.reduce((s,r)=>s+(r.t.categoryTotals[c]||0), 0); });
+  const sheet2 = [['月份','當月營收合計', ...CATEGORY_OPTIONS]];
+  rows.forEach(r=>{
+    sheet2.push([r.m, r.t.unitTotal, ...CATEGORY_OPTIONS.map(c=>r.t.categoryTotals[c]||0)]);
+  });
+  sheet2.push(['年度總計', yearTotal.unitTotal, ...CATEGORY_OPTIONS.map(c=>catYearTotals[c])]);
+  sheet2.push(['營收占比', yearTotal.unitTotal>0?'100%':'', ...CATEGORY_OPTIONS.map(c=>{
+    const pct = yearTotal.unitTotal>0 ? Math.round(catYearTotals[c]/yearTotal.unitTotal*100) : 0;
+    return pct ? pct+'%' : '';
+  })]);
+
+  exportMultiSheet('年度總覽.xlsx', [
+    {name:'月度總覽', aoa: sheet1},
+    {name:'各分類營收明細', aoa: sheet2},
+  ]);
+}
+
+function renderOverview(){
+  buildYearTabs('overviewYearTabs', false);
+
+  const summary = document.getElementById('overviewSummary');
+  const chart = document.getElementById('chart');
+  const table = document.getElementById('overviewTable');
+
+  const rows = getMonthsForYear(state.currentYear).map(m=>({m, t: calcMonth(state.data[m])}));
+  const yearTotal = rows.reduce((acc,r)=>{
+    acc.unitTotal += r.t.unitTotal; acc.paid += r.t.paid; acc.unpaid += r.t.unpaid;
+    acc.shareTotal += r.t.shareTotal;
+    return acc;
+  }, {unitTotal:0, paid:0, unpaid:0, shareTotal:0});
+
+  summary.innerHTML = `
+    <div class="ov-card"><div class="label">累計月份</div><div class="value">${rows.length}</div></div>
+    <div class="ov-card"><div class="label">累積營收</div><div class="value">$${fmt(yearTotal.unitTotal)}</div></div>
+    <div class="ov-card"><div class="label">未收金額</div><div class="value">$${fmt(yearTotal.unpaid)}</div></div>
+    <div class="ov-card"><div class="label">累積業務分潤</div><div class="value">$${fmt(yearTotal.shareTotal)}</div></div>
+  `;
+
+  const yearDeposits = (state.deposits||[]).filter(d=>getDepositYear(d)===state.currentYear);
+  const depositTotals = yearDeposits.reduce((acc,d)=>{
+    const c = calcDeposit(d, state.depositTaxRate);
+    acc.initial += Number(d.initialAmount)||0;
+    acc.used += c.used;
+    acc.balance += c.balance;
+    return acc;
+  }, {initial:0, used:0, balance:0});
+
+  const depositSummary = document.getElementById('overviewDepositSummary');
+  if(depositSummary){
+    depositSummary.innerHTML = `
+      <div class="ov-card"><div class="label">儲值型客戶</div><div class="value">${yearDeposits.length}</div></div>
+      <div class="ov-card"><div class="label">儲值總額</div><div class="value">$${fmt(depositTotals.initial)}</div></div>
+      <div class="ov-card"><div class="label">已使用額</div><div class="value">$${fmt(depositTotals.used)}</div></div>
+      <div class="ov-card"><div class="label">剩餘餘額</div><div class="value">$${fmt(depositTotals.balance)}</div></div>
+    `;
+  }
+
+  const catSet = new Set();
+  rows.forEach(r=>Object.keys(r.t.categoryTotals).forEach(c=>catSet.add(c)));
+  const catList = CATEGORY_OPTIONS.filter(c=>catSet.has(c)).concat(Array.from(catSet).filter(c=>!CATEGORY_OPTIONS.includes(c)));
+
+  const max = Math.max(1, ...rows.map(r=>r.t.unitTotal));
+  chart.innerHTML = rows.map(r=>{
+    const total = r.t.unitTotal || 0;
+    const barH = Math.max(4, Math.round((total/max)*150));
+    const cats = r.t.categoryTotals;
+    const segHtml = catList.filter(c=>cats[c]).map(c=>{
+      const segH = total>0 ? Math.round((cats[c]/total)*barH) : 0;
+      return `<div class="chart-seg" style="height:${segH}px; background:${categoryColor(c, catList)}" title="${escAttr(c)}：$${fmt(cats[c])}"></div>`;
+    }).join('');
+    return `<div class="chart-bar-wrap">
+      <div class="chart-value">$${fmt(total)}</div>
+      <div class="chart-bar chart-bar-stack" style="height:${barH}px">${segHtml}</div>
+      <div class="chart-label">${r.m}</div>
+    </div>`;
+  }).join('') || `<div style="color:var(--ink-soft); font-size:13px;">尚無資料</div>`;
+
+  const legend = document.getElementById('chartLegend');
+  legend.innerHTML = catList.map(c=>`
+    <span class="legend-item"><span class="legend-swatch" style="background:${categoryColor(c, catList)}"></span>${escAttr(c)}</span>
+  `).join('') || '';
+
+  const peopleSet = new Set();
+  rows.forEach(r=>Object.keys(r.t.perPerson).forEach(n=>peopleSet.add(n)));
+  const people = Array.from(peopleSet);
+
+  table.innerHTML = `
+    <thead><tr>
+      <th>月份</th><th>當月營收合計</th><th>已收</th><th>未收</th><th>分潤合計</th>
+      ${people.map(p=>`<th>${p}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${r.m}</td>
+        <td>${money(r.t.unitTotal)}</td>
+        <td>${money(r.t.paid)}</td>
+        <td>${money(r.t.unpaid)}</td>
+        <td>${money(r.t.shareTotal)}</td>
+        ${people.map(p=>`<td>${money(r.t.perPerson[p]||0)}</td>`).join('')}
+      </tr>`).join('')}
+      <tr class="total-row">
+        <td>年度總計</td>
+        <td>${money(yearTotal.unitTotal)}</td>
+        <td>${money(yearTotal.paid)}</td>
+        <td>${money(yearTotal.unpaid)}</td>
+        <td>${money(yearTotal.shareTotal)}</td>
+        ${people.map(p=>`<td>${money(rows.reduce((s,r)=>s+(r.t.perPerson[p]||0),0))}</td>`).join('')}
+      </tr>
+    </tbody>
+  `;
+
+  const categoryTable = document.getElementById('categoryTable');
+  const catYearTotals = {};
+  CATEGORY_OPTIONS.forEach(c=>{ catYearTotals[c] = rows.reduce((s,r)=>s+(r.t.categoryTotals[c]||0), 0); });
+  categoryTable.innerHTML = `
+    <thead><tr>
+      <th>月份</th><th>當月營收合計</th>
+      ${CATEGORY_OPTIONS.map(c=>`<th>${c}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${r.m}</td>
+        <td>${r.t.unitTotal ? '$'+fmt(r.t.unitTotal) : ''}</td>
+        ${CATEGORY_OPTIONS.map(c=>`<td>${r.t.categoryTotals[c] ? '$'+fmt(r.t.categoryTotals[c]) : ''}</td>`).join('')}
+      </tr>`).join('')}
+      <tr class="total-row">
+        <td>年度總計</td>
+        <td>${yearTotal.unitTotal ? '$'+fmt(yearTotal.unitTotal) : ''}</td>
+        ${CATEGORY_OPTIONS.map(c=>`<td>${catYearTotals[c] ? '$'+fmt(catYearTotals[c]) : ''}</td>`).join('')}
+      </tr>
+      <tr class="total-row pct-row">
+        <td>營收占比</td>
+        <td>${yearTotal.unitTotal>0?'100%':''}</td>
+        ${CATEGORY_OPTIONS.map(c=>{
+          const pct = yearTotal.unitTotal>0 ? Math.round(catYearTotals[c]/yearTotal.unitTotal*100) : 0;
+          return `<td>${pct ? pct+'%' : ''}</td>`;
+        }).join('')}
+      </tr>
+    </tbody>
+  `;
+}
+
+function renderClients(){
+  const summary = document.getElementById('clientsSummary');
+  const list = document.getElementById('clientList');
+
+  summary.innerHTML = `
+    <div class="ov-card"><div class="label">客戶總數</div><div class="value">${state.clients.length}</div></div>
+    <div class="ov-card"><div class="label">須開立發票</div><div class="value">${state.clients.filter(c=>c.invoiced).length}</div></div>
+  `;
+
+  if(state.clients.length===0){
+    list.innerHTML = `<div class="empty-state">目前還沒有任何客戶資料<br><button class="btn-primary" id="emptyAddClientBtn">+ 新增第一筆</button></div>`;
+    document.getElementById('emptyAddClientBtn').onclick = ()=>{
+      state.clients.unshift(blankClient());
+      triggerSync();
+      render();
+    };
+    return;
+  }
+
+  const filterInput = document.getElementById('clientFilterName');
+  filterInput.value = clientFilterName;
+  filterInput.oninput = ()=>{ clientFilterName = filterInput.value; renderClients(); };
+  const kw = clientFilterName.trim().toLowerCase();
+  const filtered = kw ? state.clients.filter(c=>(c.name||'').toLowerCase().includes(kw)) : state.clients;
+
+  if(filtered.length===0){
+    list.innerHTML = `<div class="empty-state">找不到符合「${escAttr(clientFilterName)}」的客戶</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  filtered.forEach((c,i)=>list.appendChild(renderClientCard(c, i)));
+}
+
+function renderClientCard(c, index){
+  const card = document.createElement('div');
+  card.className = 'ledger-row ' + (index % 2 === 0 ? 'deposit-alt-a' : 'deposit-alt-b');
+  const cardKey = 'client-'+c.id;
+  const cardCollapsed = !expandedClients.has(cardKey);
+
+  card.innerHTML = `
+    <div class="card-actions">
+      <button type="button" class="mini-btn mini-delete" data-act="deleteclient">刪除</button>
+    </div>
+    <div class="deposit-summary-bar" data-act="toggleclient">
+      <div class="ds-row ds-row1">
+        <span class="ds-name">${escAttr(c.name) || '（未命名客戶）'}</span>
+        <span class="ds-item">${escAttr(c.code)}</span>
+        <span class="ds-item">${escAttr(c.industry) || '-'}</span>
+        <span class="ds-item">${c.invoiced ? '需開發票' : '免開發票'}</span>
+        <span class="ds-caret">${cardCollapsed ? '▾' : '▴'}</span>
+      </div>
+    </div>
+    ${cardCollapsed ? '' : `
+    <div class="row-grid client-grid">
+      <div class="field"><label>客戶代碼</label>
+        <div class="calc-display">${escAttr(c.code)}</div></div>
+      <div class="field"><label>客戶名稱</label>
+        <input value="${escAttr(c.name)}" data-cf="name" placeholder="客戶名稱"></div>
+      <div class="field"><label>產業類別</label>
+        <select data-cf="industry">
+          <option value="" ${!c.industry?'selected':''}>請選擇</option>
+          ${INDUSTRY_OPTIONS.map(x=>`<option value="${x}" ${c.industry===x?'selected':''}>${x}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>開立發票</label>
+        <select data-cf="invoiced">
+          <option value="0" ${!c.invoiced?'selected':''}>否</option>
+          <option value="1" ${c.invoiced?'selected':''}>是</option>
+        </select></div>
+      <div class="field"><label>建檔日期</label>
+        <input type="date" value="${escAttr(c.createdDate)}" data-cf="createdDate"></div>
+      <div class="field"><label>統一編號</label>
+        <input value="${escAttr(c.taxId)}" data-cf="taxId" placeholder="統一編號"></div>
+      <div class="field"><label>公司抬頭</label>
+        <input value="${escAttr(c.companyTitle)}" data-cf="companyTitle" placeholder="發票抬頭"></div>
+      <div class="field"><label>備註</label>
+        <input value="${escAttr(c.note)}" data-cf="note" placeholder="補充資料"></div>
+    </div>
+    `}
+  `;
+
+  card.querySelector('[data-act="toggleclient"]').onclick = ()=>{
+    if(expandedClients.has(cardKey)) expandedClients.delete(cardKey);
+    else expandedClients.add(cardKey);
+    render();
+  };
+  card.querySelector('[data-act="deleteclient"]').onclick = (ev)=>{
+    const btn = ev.currentTarget;
+    if(!btn.classList.contains('confirm-armed')){
+      btn.classList.add('confirm-armed');
+      btn.textContent = '確定？';
+      clearTimeout(btn._confirmTimer);
+      btn._confirmTimer = setTimeout(()=>{
+        btn.classList.remove('confirm-armed');
+        btn.textContent = '刪除';
+      }, 3000);
+      return;
+    }
+    clearTimeout(btn._confirmTimer);
+    state.clients = state.clients.filter(x=>x.id!==c.id);
+    triggerSync();
+    render();
+  };
+
+  if(cardCollapsed) return card;
+
+  card.querySelectorAll('[data-cf]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const f = inp.dataset.cf;
+      let v = inp.value;
+      if(f==='invoiced') v = v==='1';
+      c[f] = v;
+      triggerSync();
+      render();
+    });
+  });
+  return card;
+}
+
+function getDepositYear(d){
+  return (d.date && /^\d{4}/.test(d.date)) ? d.date.slice(0,4) : '未填日期';
+}
+function getDepositYears(){
+  const years = Array.from(new Set(state.deposits.map(getDepositYear)));
+  const dated = years.filter(y=>y!=='未填日期').sort();
+  return years.includes('未填日期') ? [...dated, '未填日期'] : dated;
+}
+function buildDepositYearTabs(){
+  const tabs = document.getElementById('depositYearTabs');
+  if(!tabs) return;
+  const years = getDepositYears();
+  if(depositCurrentYear===null || !years.includes(depositCurrentYear)){
+    depositCurrentYear = years.length ? years[years.length-1] : null;
+  }
+  tabs.innerHTML = '';
+  years.forEach(y=>{
+    const b = document.createElement('button');
+    b.className = 'month-tab year-tab' + (y===depositCurrentYear ? ' active':'');
+    b.textContent = y==='未填日期' ? y : y+'年';
+    b.onclick = ()=>{ depositCurrentYear = y; renderDeposits(); };
+    tabs.appendChild(b);
+  });
+}
+
+function renderDeposits(){
+  buildDepositYearTabs();
+
+  const summary = document.getElementById('depositSummary');
+  const list = document.getElementById('depositList');
+  const taxRateInput = document.getElementById('depositTaxRateInput');
+  taxRateInput.value = state.depositTaxRate;
+  taxRateInput.onchange = ()=>{
+    state.depositTaxRate = Number(taxRateInput.value)||0;
+    triggerSync();
+    render();
+  };
+
+  const yearDeposits = depositCurrentYear ? state.deposits.filter(d=>getDepositYear(d)===depositCurrentYear) : state.deposits;
+
+  const totals = yearDeposits.reduce((acc,d)=>{
+    const c = calcDeposit(d, state.depositTaxRate);
+    acc.initial += Number(d.initialAmount)||0;
+    acc.used += c.used;
+    acc.balance += c.balance;
+    return acc;
+  }, {initial:0, used:0, balance:0});
+
+  summary.innerHTML = `
+    <div class="ov-card"><div class="label">儲值型客戶</div><div class="value">${yearDeposits.length}</div></div>
+    <div class="ov-card"><div class="label">儲值總額</div><div class="value">$${fmt(totals.initial)}</div></div>
+    <div class="ov-card"><div class="label">已使用額</div><div class="value">$${fmt(totals.used)}</div></div>
+    <div class="ov-card"><div class="label">剩餘餘額</div><div class="value">$${fmt(totals.balance)}</div></div>
+  `;
+
+  if(yearDeposits.length===0){
+    list.innerHTML = `<div class="empty-state">這個年度還沒有任何客戶儲值紀錄<br><button class="btn-primary" id="emptyAddDepositBtn">+ 新增第一筆</button></div>`;
+    document.getElementById('emptyAddDepositBtn').onclick = ()=>{
+      const nd = blankDeposit();
+      if(depositCurrentYear && depositCurrentYear!=='未填日期'){
+        nd.date = `${depositCurrentYear}-01-01`;
+      }
+      state.deposits.unshift(nd);
+      triggerSync();
+      render();
+    };
+    return;
+  }
+
+  const filterInput = document.getElementById('depositFilterClient');
+  filterInput.value = depositFilterClient;
+  filterInput.oninput = ()=>{
+    depositFilterClient = filterInput.value;
+    renderDeposits();
+  };
+  const kw = depositFilterClient.trim().toLowerCase();
+  const filtered = kw ? yearDeposits.filter(d=>(d.client||'').toLowerCase().includes(kw)) : yearDeposits;
+
+  if(filtered.length===0){
+    list.innerHTML = `<div class="empty-state">找不到符合「${escAttr(depositFilterClient)}」的客戶</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  filtered.forEach((d,i)=>list.appendChild(renderDepositCard(d, i)));
+}
+
+function renderDepositCard(d, index){
+  const card = document.createElement('div');
+  card.className = 'ledger-row deposit-card ' + (index % 2 === 0 ? 'deposit-alt-a' : 'deposit-alt-b');
+  const {used, balance, tax, actualPaid} = calcDeposit(d, state.depositTaxRate);
+  const cardKey = 'card-'+d.id;
+  const cardCollapsed = !expandedDeposits.has(cardKey);
+  const isCollapsed = collapsedShares.has('dep-'+d.id);
+
+  card.innerHTML = `
+    <div class="card-actions">
+      <button type="button" class="mini-btn mini-delete" data-act="deletedeposit">刪除</button>
+    </div>
+    <div class="deposit-summary-bar" data-act="togglecard">
+      <div class="ds-row ds-row1">
+        <span class="ds-name">${escAttr(d.client) || '（未命名客戶）'}</span>
+        <span class="ds-item">${escAttr(d.date) || '未填日期'}-${escAttr(d.client) || '未命名客戶'}</span>
+        <span class="ds-item">${escAttr(d.category) || '-'}</span>
+        <span class="ds-item">${escAttr(d.content) || '-'}</span>
+        <span class="ds-caret">${cardCollapsed ? '▾' : '▴'}</span>
+      </div>
+      <div class="ds-row ds-row2">
+        <span class="ds-item">儲值金額 <b>$${fmt(d.initialAmount)}</b></span>
+        <span class="ds-item">已使用額 <b>$${fmt(used)}</b></span>
+        <span class="ds-item">剩餘餘額 <b style="color:${balance<0?'var(--red)':'var(--green)'}">$${fmt(balance)}</b>${balance===0?' <span class="closed-tag">已結案</span>':''}</span>
+      </div>
+    </div>
+    ${cardCollapsed ? '' : `
+    <div class="row-grid deposit-grid">
+      <div class="field"><label>客戶單號</label>
+        <div class="calc-display">${escAttr(d.date) || '未填日期'}-${escAttr(d.client) || '未命名客戶'}</div></div>
+      <div class="field"><label>客戶名稱</label>
+        <input list="clientNameList" value="${escAttr(d.client)}" data-df="client" placeholder="客戶 / 公司名稱"></div>
+      <div class="field"><label>專案分類</label>
+        <input list="catlist" value="${escAttr(d.category)}" data-df="category"></div>
+      <div class="field"><label>專案內容</label>
+        <input list="contentlist-dep-${d.id}" value="${escAttr(d.content)}" data-df="content" placeholder="選擇或輸入">
+        <datalist id="contentlist-dep-${d.id}">${contentOptionsFor(d.category).map(c=>`<option value="${escAttr(c)}">`).join('')}</datalist>
+      </div>
+      <div class="field"><label>專案說明</label>
+        <input value="${escAttr(d.note)}" data-df="note" placeholder="補充資料"></div>
+      <div class="field"><label>儲值日期</label>
+        <input type="date" value="${escAttr(d.date)}" data-df="date"></div>
+      <div class="field"><label>儲值金額</label>
+        <input type="number" value="${d.initialAmount}" data-df="initialAmount"></div>
+      <div class="field"><label>開立發票</label>
+        <select data-df="invoiced">
+          <option value="0" ${!d.invoiced?'selected':''}>否</option>
+          <option value="1" ${d.invoiced?'selected':''}>是</option>
+        </select></div>
+      <div class="field"><label>儲值帳號</label>
+        <select data-df="account">
+          <option value="" ${!d.account?'selected':''}>請選擇</option>
+          ${ACCOUNT_OPTIONS.map(a=>`<option value="${a}" ${d.account===a?'selected':''}>${a}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>期數</label>
+        <input type="number" min="1" max="99" value="${d.installmentTotal}" data-df="installmentTotal"></div>
+    </div>
+    <div class="row-sub">
+      <div class="calc-chip-row">
+        <div class="calc-chip">應稅外加 <b>$${fmt(tax)}</b></div>
+        <div class="calc-chip">實際支付 <b>$${fmt(actualPaid)}</b></div>
+        <div class="calc-chip">已使用額 <b>$${fmt(used)}</b></div>
+        <div class="calc-chip">剩餘餘額 <b style="color:${balance<0?'var(--red)':'var(--green)'}">$${fmt(balance)}</b></div>
+      </div>
+      <div class="shares">
+        <div class="shares-head">
+          <button type="button" class="shares-toggle" data-act="toggleusages">
+            <span>使用紀錄（${(d.usages||[]).length}）</span> ${isCollapsed ? '▾' : '▴'}
+          </button>
+          <button data-act="addusage">+ 新增使用紀錄</button>
+        </div>
+        <div class="share-list" ${isCollapsed ? 'hidden' : ''}></div>
+      </div>
+    </div>
+    `}
+  `;
+
+  card.querySelector('[data-act="togglecard"]').onclick = ()=>{
+    if(expandedDeposits.has(cardKey)) expandedDeposits.delete(cardKey);
+    else expandedDeposits.add(cardKey);
+    render();
+  };
+  card.querySelector('[data-act="deletedeposit"]').onclick = (ev)=>{
+    const btn = ev.currentTarget;
+    if(!btn.classList.contains('confirm-armed')){
+      btn.classList.add('confirm-armed');
+      btn.textContent = '確定？';
+      clearTimeout(btn._confirmTimer);
+      btn._confirmTimer = setTimeout(()=>{
+        btn.classList.remove('confirm-armed');
+        btn.textContent = '刪除';
+      }, 3000);
+      return;
+    }
+    clearTimeout(btn._confirmTimer);
+    state.deposits = state.deposits.filter(x=>x.id!==d.id);
+    triggerSync();
+    render();
+  };
+
+  if(cardCollapsed) return card;
+
+  card.querySelectorAll('[data-df]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const f = inp.dataset.df;
+      let v = inp.value;
+      if(f==='initialAmount' || f==='installmentTotal') v = Number(v)||0;
+      else if(f==='invoiced') v = v==='1';
+      d[f] = v;
+      triggerSync();
+      render();
+    });
+  });
+
+  const usageList = card.querySelector('.share-list');
+  (d.usages||[]).forEach((u,i)=>{
+    const ur = document.createElement('div');
+    ur.className = 'share-row';
+    ur.innerHTML = `
+      <input class="name" type="date" value="${escAttr(u.date)}">
+      <input class="name" placeholder="用途說明" value="${escAttr(u.note)}">
+      <input class="amount" type="number" placeholder="金額" value="${u.amount}">
+      <button class="delete-share" title="刪除">✕</button>
+    `;
+    const [dateInp, noteInp, amtInp] = ur.querySelectorAll('input');
+    const delBtn = ur.querySelector('.delete-share');
+    dateInp.onchange = ()=>{ u.date = dateInp.value; triggerSync(); };
+    noteInp.onchange = ()=>{ u.note = noteInp.value; triggerSync(); };
+    amtInp.onchange = ()=>{ u.amount = Number(amtInp.value)||0; triggerSync(); render(); };
+    delBtn.onclick = ()=>{ d.usages.splice(i,1); triggerSync(); render(); };
+    usageList.appendChild(ur);
+  });
+
+  card.querySelector('[data-act="addusage"]').onclick = ()=>{
+    d.usages = d.usages||[];
+    d.usages.push(blankUsage());
+    collapsedShares.delete('dep-'+d.id);
+    triggerSync();
+    render();
+  };
+  card.querySelector('[data-act="toggleusages"]').onclick = ()=>{
+    const key = 'dep-'+d.id;
+    if(collapsedShares.has(key)) collapsedShares.delete(key);
+    else collapsedShares.add(key);
+    render();
+  };
+  return card;
+}
+
+function addMonth(containerId){
+  const tabs = document.getElementById(containerId);
+  const addBtn = tabs.querySelector('.month-tab-add');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'month-tab-input';
+  input.placeholder = '月份 例如 08';
+  input.onkeydown = (ev)=>{
+    if(ev.key==='Enter'){
+      const raw = input.value.trim();
+      if(!raw) return;
+      const mm = raw.padStart(2,'0');
+      const id = `${state.currentYear}-${mm}`;
+      if(state.months.includes(id)){ flash('這個月份已經存在'); return; }
+      state.months.push(id);
+      state.data[id] = blankMonth();
+      triggerSync();
+      state.currentMonth = id;
+      render();
+    } else if(ev.key==='Escape'){
+      render();
+    }
+  };
+  input.onblur = ()=>{ if(document.body.contains(input)) render(); };
+  addBtn.replaceWith(input);
+  input.focus();
+}
+
+function addYear(containerId){
+  const tabs = document.getElementById(containerId);
+  const addBtn = tabs.querySelector('.month-tab-add');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'month-tab-input';
+  input.placeholder = '年份 例如 2027';
+  input.onkeydown = (ev)=>{
+    if(ev.key==='Enter'){
+      const year = input.value.trim();
+      if(!/^\d{4}$/.test(year)){ flash('請輸入4位數年份'); return; }
+      if(getYears().includes(year)){ flash('這個年份已經存在'); return; }
+      const id = `${year}-01`;
+      state.months.push(id);
+      state.data[id] = blankMonth();
+      triggerSync();
+      state.currentYear = year;
+      state.currentMonth = id;
+      render();
+    } else if(ev.key==='Escape'){
+      render();
+    }
+  };
+  input.onblur = ()=>{ if(document.body.contains(input)) render(); };
+  addBtn.replaceWith(input);
+  input.focus();
+}
+
+document.querySelectorAll('.view-switch button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const target = b.dataset.view;
+    if(target==='bz' || target==='bzOverview') enterBz(); else leaveBz();
+    state.view = target; render();
+  });
+});
+document.getElementById('addDepositBtn').addEventListener('click', ()=>{
+  const nd = blankDeposit();
+  if(depositCurrentYear && depositCurrentYear!=='未填日期'){
+    nd.date = `${depositCurrentYear}-01-01`;
+  }
+  state.deposits.unshift(nd);
+  triggerSync();
+  render();
+});
+document.getElementById('exportDepositsBtn').addEventListener('click', ()=>{
+  const header = ['客戶名稱','專案分類','專案內容','儲值日期','開立發票','儲值帳號','期數','儲值金額','應稅外加','實際支付','已使用額','剩餘餘額','備註'];
+  const aoa = [header];
+  state.deposits.forEach(d=>{
+    const {used, balance, tax, actualPaid} = calcDeposit(d, state.depositTaxRate);
+    aoa.push([d.client, d.category, d.content, d.date, d.invoiced?'是':'否', d.account, d.installmentTotal, d.initialAmount, tax, actualPaid, used, balance, d.note]);
+  });
+  exportToExcel('儲值型客戶.xlsx', '儲值型客戶', aoa);
+});
+document.getElementById('addClientBtn').addEventListener('click', ()=>{
+  state.clients.unshift(blankClient());
+  triggerSync();
+  render();
+});
+document.getElementById('exportClientsBtn').addEventListener('click', ()=>{
+  const header = ['客戶代碼','客戶名稱','產業類別','開立發票','統一編號','公司抬頭','建檔日期','備註'];
+  const aoa = [header];
+  state.clients.forEach(c=>{
+    aoa.push([c.code, c.name, c.industry, c.invoiced?'是':'否', c.taxId, c.companyTitle, c.createdDate, c.note]);
+  });
+  exportToExcel('客戶資料.xlsx', '客戶資料', aoa);
+});
+document.getElementById('exportCommissionBtn').addEventListener('click', ()=>{
+  const month = state.data[state.currentMonth];
+  if(!month) return;
+  const header = ['業務員','客戶名稱','專案分類','專案內容','分潤金額','付款方式','項目狀態'];
+  const aoa = [header];
+  (month.entries||[]).forEach(e=>{
+    const client = entryClientName(e);
+    (e.shares||[]).forEach(s=>{
+      aoa.push([
+        s.name||'（未指定）', client, e.category, e.content,
+        Number(s.amount)||0, s.paidMethod||'未付款',
+        STATUS_OPTIONS.find(x=>x.v===e.status)?.t || e.status,
+      ]);
+    });
+  });
+  exportToExcel(`每月分潤登錄_${state.currentMonth}.xlsx`, state.currentMonth, aoa);
+});
+document.getElementById('exportOverviewBtn').addEventListener('click', exportOverviewToExcel);
+document.getElementById('exportClientShareBtn').addEventListener('click', exportClientShareToExcel);
+document.getElementById('exportBzOverviewBtn').addEventListener('click', exportBzOverviewToExcel);
+document.getElementById('exportAllBtn').addEventListener('click', exportAllToExcel);
+document.getElementById('importAllBtn').addEventListener('click', (ev)=>{
+  const btn = ev.currentTarget;
+  if(!btn.classList.contains('confirm-armed')){
+    btn.classList.add('confirm-armed');
+    btn.textContent = '確定？將覆蓋雲端資料';
+    clearTimeout(btn._confirmTimer);
+    btn._confirmTimer = setTimeout(()=>{
+      btn.classList.remove('confirm-armed');
+      btn.textContent = '匯入全部 Excel';
+    }, 4000);
+    return;
+  }
+  clearTimeout(btn._confirmTimer);
+  btn.classList.remove('confirm-armed');
+  btn.textContent = '匯入全部 Excel';
+  document.getElementById('importAllFile').click();
+});
+document.getElementById('importAllFile').addEventListener('change', async (ev)=>{
+  const file = ev.target.files[0];
+  if(!file) return;
+  await importAllFromExcel(file);
+  ev.target.value = '';
+});
+document.getElementById('exportReportBtn').addEventListener('click', ()=>{
+  const month = state.data[state.currentMonth];
+  if(!month) return;
+  const peopleSet = new Set();
+  (month.entries||[]).forEach(e=>(e.shares||[]).forEach(s=>{ if(s.name) peopleSet.add(s.name); }));
+  const people = Array.from(peopleSet);
+  const rows = (month.entries||[]).map(e=>{
+    const byPerson = {};
+    (e.shares||[]).forEach(s=>{
+      if(!s.name) return;
+      byPerson[s.name] = (byPerson[s.name]||0) + (Number(s.amount)||0);
+    });
+    return { client: entryClientName(e)||'-', category: e.category||'-', revenue: e.unitPrice||0, byPerson };
+  });
+  if(reportSort){
+    rows.sort((a,b)=>String(a[reportSort]).localeCompare(String(b[reportSort]), 'zh-Hant'));
+  }
+  const header = ['客戶名稱','專案分類','專案營收', ...people.map(p=>`業務分潤─${p}`)];
+  const aoa = [header];
+  rows.forEach(r=>{
+    aoa.push([r.client, r.category, r.revenue, ...people.map(p=>r.byPerson[p]||0)]);
+  });
+  exportToExcel(`月營收分潤報表_${state.currentMonth}.xlsx`, state.currentMonth, aoa);
+});
+
+const dl = document.createElement('datalist');
+dl.id = 'catlist';
+dl.innerHTML = CATEGORY_OPTIONS.map(c=>`<option value="${c}">`).join('');
+document.body.appendChild(dl);
+
+const clientDl = document.createElement('datalist');
+clientDl.id = 'clientNameList';
+document.body.appendChild(clientDl);
+function refreshClientDatalist(){
+  clientDl.innerHTML = (state.clients||[]).map(c=>`<option value="${escAttr(c.name)}">`).join('');
+}
+
+async function startApp(){
+  const ok = await fetchFromCloud();
+  if(!ok) return;
+  document.getElementById('passwordGate').style.display = 'none';
+  render();
+}
+
+function savedPassword(){
+  try{ return sessionStorage.getItem('hersPw') || ''; }
+  catch(e){ return ''; }
+}
+async function tryPasswordSubmit(){
+  const input = document.getElementById('passwordInput');
+  const err = document.getElementById('passwordError');
+  const btn = document.getElementById('passwordSubmit');
+  if(!input.value){ err.textContent = '請輸入密碼'; return; }
+  btn.disabled = true; const label = btn.textContent; btn.textContent = '驗證中...';
+  err.textContent = '';
+  cloudPassword = input.value;
+  try{
+    const resp = await cloudCall('auth');
+    if(resp.ok){
+      try{ sessionStorage.setItem('hersPw', cloudPassword); }catch(e){}
+      input.value = '';
+      await startApp();
+    } else {
+      cloudPassword = '';
+      err.textContent = '密碼錯誤，請再試一次';
+      input.value = ''; input.focus();
+    }
+  }catch(e){
+    cloudPassword = '';
+    err.textContent = (e && e.message === 'NO_URL')
+      ? '尚未設定雲端網址：請把 Apps Script 網頁應用程式網址貼到檔案內的 GAS_URL'
+      : '無法連線到雲端，請檢查網路後再試';
+  }finally{
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+document.getElementById('passwordSubmit').addEventListener('click', tryPasswordSubmit);
+document.getElementById('passwordInput').addEventListener('keydown', (ev)=>{
+  if(ev.key === 'Enter') tryPasswordSubmit();
+});
+document.getElementById('cloudSyncBtn').addEventListener('click', ()=>syncToCloudBackground());
+
+(async ()=>{
+  const pw = savedPassword();
+  if(pw){
+    cloudPassword = pw;
+    startApp();
+  } else {
+    document.getElementById('passwordInput').focus();
+  }
+})();
+</script>
+</body>
+</html>
